@@ -2,7 +2,7 @@
 name: start
 description: Put Claude to work for the whole night on the person's task - plan and progress file in a task folder, the computer kept awake for 8 or 12 hours, work step by step with self-critique, other AIs of other companies brought in (their own subscription programs first, free browser chats if none), dead helpers replaced, and a morning report of what was done, what was not and what to check. Use when the person says "работай ночью", "поработай, пока я сплю", "ночная работа", "work overnight", "keep going while I sleep", "до утра", or gives a big task and says they are leaving for the night.
 argument-hint: "<the task in your own words> [8|12 hours]"
-allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(date*) Bash(git *) Read Write Edit Glob Grep
+allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(date*) Bash(git *) Read Write Edit Glob Grep ToolSearch
 ---
 
 # Nightcall: the night shift
@@ -14,6 +14,16 @@ go to sleep: from the moment they leave, nobody will answer a question, press "Y
 setting. Everything that needs them happens in the next five minutes, before they go.
 
 ## 0. Before they leave — five minutes, in this order
+
+0. **The roll call — first, while the person is surely here.** It is the part that needs their
+   hands: a sign-in, a click on «Разрешить» in Chrome, a captcha. Choose the folder name now (step 3:
+   `ночь-<date>-<short-name>`) and do `/nightcall:team` §1 with `<seats>` = `<folder>/seats.json`:
+   a) `team.py rollcall` — a table of every program by subscription and free key: жив / лимит (до
+   ЧЧ:ММ) / не вошли / нет программы; b) Chrome — Claude in Chrome connected, a new tab opens, each
+   web chat (ChatGPT, Gemini, Kimi, DeepSeek, Meta AI…) checked one at a time for an input field and
+   a test answer; any «Разрешить» — the person presses it now; c) `team.py summary` — «Ночью
+   работают: …; запас: …; не работает: … — что сделать сейчас». No live helper of another company →
+   say honestly the night will run with Claude's own critics only, and offer one fix before they go.
 
 1. **The task in one sentence and the finish line.** Repeat the task back in one sentence and say
    what "done by morning" means — a thing that can be checked (a file exists, tests pass, a document
@@ -52,8 +62,8 @@ setting. Everything that needs them happens in the next five minutes, before the
    ```
    run in a separate terminal (Mac/Linux; on Windows from Git Bash or WSL).
 
-7. **The team.** `/nightcall:team` — which other AIs are alive tonight. Results go to
-   `<folder>/seats.json`. None alive is not a stop: helpers then come through free browser chats.
+7. **The team, once more if something was fixed.** If the person signed in or installed
+   something after step 0, re-run that part of the roll call so `seats.json` is true.
 
 8. **Say goodbye with the facts:** until what time the computer stays awake, how many steps are in
    the plan, which helpers are alive, where the morning report will be (`<folder>/MORNING.md`), and
@@ -107,27 +117,29 @@ or rely on the git commit.
 Use them where a second head changes the result: the plan, a hard decision, a finished part of
 the text or code, facts you are not sure of. Not on every sentence.
 
-**First — programs already on this computer** (the person's own subscriptions, no extra cost):
+**The order of replacement is fixed**: a live program by subscription → at a limit or failure the
+next program of another company → free keys (if set up, course step 12A) → a web chat that passed
+the roll call → Claude's own critics (a fresh sub-agent), said out loud.
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" ask --seats "<folder>/seats.json" --dir "<folder>" -
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" ask --seats "<folder>/seats.json" --progress "<folder>/PROGRESS.md" --dir "<folder>" -
 ```
 with the question on standard input. Ask the question **as a question** — never paste your own
 answer into it: an AI shown an answer agrees with it. Give it the paths of the files to read, not
 their contents, when they are in `<folder>`.
 
-The script walks down the live helpers of other companies: if the first one is out of allowance,
-not signed in or silent, the next one gets the same question, and the dead one is marked in
-`seats.json` so the rest of the night does not wait on it again. Every two or three hours, or after
-a helper dies, re-check who is alive: `/nightcall:team` — allowances come back.
+The script walks down that order: the one that failed is marked in `seats.json` so the night does
+not wait on it again, a program at its limit is marked «лимит до ЧЧ:ММ» and comes back by itself
+after that time, and every replacement is a line in `PROGRESS.md` → «Помощники». Every two or three
+hours re-run `team.py rollcall` — allowances come back.
 
-**None alive — through the browser.** Follow `/nightcall:team`, section "Через браузер": open a free
-chat of another company in the person's browser, paste the question, wait for the full answer, take
-it off the page. If the Poly A1 folder `Poly nov/agent/` is next to this plugin, its files are the
-detailed method (`05-fan-out.md` to paste, `07-collect-answers.md` to take the answer).
+**Programs and keys all out — a web chat.** The answer names it in `дальше` — only a site that
+passed the roll call. Follow `/nightcall:team` §3: one site at a time in its own tab, never a
+password; a sign-in screen or captcha → mark it «нужен вход» / «капча» and go on to the next one.
+Nothing left → Claude's own critics, written as such.
 
 **Write down every answer that changed something** in `PROGRESS.md`, with who said it. A helper that
-did not answer is written down too: «Grok — кончился запас, заменён Kimi». A pair that did not happen
+did not answer is written down too: «Grok — лимит до 04:00, заменён Kimi». A pair that did not happen
 is said out loud, never faked by asking yourself twice.
 
 ## 4. Keeping the night going
@@ -141,7 +153,8 @@ continues by itself. In a plain session, the person will see where it stopped in
 
 ## 5. Morning
 
-When every step is done, or at the end time: `/nightcall:morning`. It writes `MORNING.md`,
+When every step is done, or at the end time: `/nightcall:morning`. Who really took part:
+`team.py used --seats "<folder>/seats.json"`. It writes `MORNING.md`,
 closes the night and switches the coffee off.
 
 ## What never happens at night

@@ -1,8 +1,8 @@
 ---
 name: team
-description: Find which other AIs can help tonight and prove they are alive - first AI programs of other companies already installed and signed in with the person's own subscription (Codex/ChatGPT, Gemini, Grok, Kimi, Qwen), each checked with a short test question; dead ones (out of allowance, not signed in, silent) are replaced by the next live one; if no program is alive, helpers come through free web chats in the browser, where Claude pastes the question and takes the answer back. Use when the person says "кто из ИИ живой", "подключи другие ИИ", "проверь помощников", "other AIs", or during a night run every few hours.
+description: The roll call of helper AIs before the night, and their replacement during it. While the person is still here - every AI program of another company already installed by subscription (Codex/ChatGPT, Gemini/agy, Grok, Kimi, Qwen) and every free key gets a test question; then Chrome is checked (Claude in Chrome connected, a tab opens, the person is signed in to ChatGPT, Gemini, Kimi, DeepSeek, Meta AI...), and the person is asked to press "Allow" now, not at night. At night - CLI, then the next CLI, then free keys, then only the web chats that passed the roll call, then Claude's own critics; every replacement is a line in PROGRESS.md. Use when the person says "кто из ИИ живой", "перекличка", "подключи другие ИИ", "проверь помощников", "проверь браузер", "other AIs", or during a night run every few hours.
 argument-hint: "[folder of the night run]"
-allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(open *) Bash(osascript *) Read Write
+allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(open *) Bash(osascript *) Bash(date*) Read Write ToolSearch
 ---
 
 # Nightcall: the team for tonight
@@ -10,63 +10,118 @@ allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(open *) Bash(o
 The person said: $ARGUMENTS
 
 Answer in the person's language. Claude is the main agent; these are its helpers. A helper counts
-only if it **answered a question just now** — being installed is not being alive.
+only if it **answered a question just now** — being installed or open in a tab is not being alive.
+`<seats>` below is `<night folder>/seats.json` (no night folder yet: a `seats.json` in the task folder).
 
-## 1. Programs on this computer
+## 1. The roll call — while the person is still here
 
-```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" probe --out "<night folder>/seats.json"
-```
-(no night folder yet: leave out `--out`). Each found program gets «Проверка связи. Ответь одним
-словом: ок» with a 90-second ceiling. Show the result as the script prints it: ЖИВ / НЕТ and why.
+Everything the night will need from the person — a sign-in, a click on «Разрешить», a captcha —
+happens now. At night nobody presses anything.
 
-How to say the reasons — without blame, and with what fixes it:
-- **кончился запас** — the subscription allowance ran out. Not a breakage and nothing to pay: it
-  comes back by itself. Tonight another helper takes its place.
-- **не вошли** — the program is installed but not signed in. The person can fix it now in one
-  minute (run the program once and sign in); at night — skip it.
-- **молчит / сбой** — skip it tonight, try again at the next check.
-
-Only programs of **other companies** count: a second Claude is not a second opinion.
-
-## 2. Asking — with automatic replacement
+### a) Programs by subscription and free keys
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" ask --seats "<night folder>/seats.json" --dir "<folder the helper may read>" [--who kimi] -
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" rollcall --out "<seats>"
 ```
-Question on standard input. The answer says **who really answered** and who fell out on the way
-(`не_смогли`). Quote the helper's answer as theirs; do not tidy it. Helpers run read-only: they
-may read and search, they cannot change files or run commands.
 
-## 3. Через браузер — when no program is alive
+Every program found (claude, codex, agy/gemini, grok, kimi, qwen) and every free key the person set
+up earlier (course step 12A: `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY` in the
+environment or `~/.nightcall/free-keys.env`) gets «Проверка связи. Ответь одним словом: ок», 90
+seconds each. Show the table as printed: **жив / лимит (до ЧЧ:ММ, если видно) / не вошли / сбой /
+молчит / нет программы**. How to say it, with what fixes it:
+- **лимит** — the subscription allowance ran out; nothing to pay, it comes back by itself. With a
+  time: it rejoins the night after that time.
+- **не вошли** — installed but not signed in: run it once in a terminal and sign in, now.
+- **нет программы** — may be installed now if the person wants; otherwise the reserve covers it.
+- **молчит / сбой** — skip tonight; the next check tries again.
 
-This is a full route, not a fallback to apologise for. The person's browser is usually signed in
-to free chats of other companies: ChatGPT (chatgpt.com), Gemini (gemini.google.com), Grok
-(grok.com), DeepSeek (chat.deepseek.com), Kimi (kimi.com), Qwen (chat.qwen.ai), Mistral
-(chat.mistral.ai).
+Claude's own line is the main agent, not a helper: a second Claude is not a second opinion.
 
-1. **Name the browser tool you have** — Claude in Chrome, the built-in browser, or on a Mac plain
-   `open -a "Google Chrome" <url>` plus `osascript` to run JavaScript in the tab. No tool at all:
-   hand the person the question as a block to paste, and ask them to paste the answer back — before
-   they leave, not at night.
-2. **Prove the tab is real**: read back the account name on the page. Signed out → that chat is
-   not a helper tonight; say so and use another.
-3. **One site per step.** Opening two sites in one batch gives false "not allowed" errors. A first
-   failure means nothing — try once more before calling a chat unreachable.
-4. **Paste by script into the page's input, not by keystrokes**, then read the field back and press
-   the site's own Send button. A blind Cmd+V can land in another window.
-5. **Wait for the whole answer.** Bring the tab to the front — a background tab stops generating
-   halfway. "Text stopped growing" is not "done": wait for the copy button to appear, expand any
-   "Show more", then read the answer's own block on the page, not the whole page.
-6. **Check it is the answer, not your question** (Kimi repeats the question on the page) and not an
-   old answer from the same tab.
-7. Save it to `<night folder>/помощники/NN-<chat>.md` with the chat's address and the time.
+### b) The browser — is the way out to web chats alive?
+
+1. **The tool.** Load the Claude in Chrome tools in one `ToolSearch` call
+   (`select:` the `mcp__claude-in-chrome__*` names you see). Only an `enable…claude-in-chrome` tool
+   is there → call it to switch Chrome on. None at all → the extension is not installed or not
+   connected: tell the person plainly («поставьте расширение Claude in Chrome и войдите в него —
+   https://claude.ai/chrome — это минута»), then record
+   `team.py web-mark --seats "<seats>" --browser "нет расширения"` and go to (c).
+   If the `anthropic-skills:chrome-browser` skill is available, follow it for tabs and permissions.
+2. **A tab opens.** Look at the person's open tabs, then open **one new tab** — never reuse theirs.
+   Chrome or the extension asks for a site permission or a confirmation → **ask the person to press
+   «Разрешить» right now** («ночью вас не будет, а без этого нажатия запас не заработает»), wait
+   for it, and try once more. A first failure means nothing; the second one counts.
+   Record `web-mark --browser жив` (or `нет разрешения`).
+3. **Each web chat, one at a time**, from `team.py web-sites` (ChatGPT, Gemini, Kimi, DeepSeek,
+   Meta AI, Grok, Qwen, Mistral — the person may name others): open it in a new tab, read the page.
+   - an input field for a message is there, no sign-in screen, no captcha → paste the short test
+     question, press the site's own Send, wait for an answer on the page → **жив**;
+   - a sign-in or "Log in" screen → **нужен вход** (never type a password; ask the person to sign in
+     now, then check that site again);
+   - a captcha / "verify you are human" → **капча** (ask the person to pass it now);
+   - the page does not load → **не открылся**.
+
+   After each site:
+   ```
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" web-mark --seats "<seats>" --site chatgpt --status жив
+   ```
+   The record in `seats.json` is `web-<site>`: жив / нужен вход / капча / не открылся.
+
+### c) The result
+
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" summary --seats "<seats>"
+```
+Say it as three lines and a to-do: **«Ночью работают: …; запас: …; не работает: … — что сделать
+сейчас: войти в …, нажать …, поставить …»**. If there is not a single live helper of another company
+(no program, no key, no web chat), say it honestly: «ночь пройдёт только со своими критиками
+Claude» — and offer to fix one thing before the person leaves. After a fix, run that part again.
+
+Web chats are the **reserve** by default: they are used at night only when the programs and keys
+are out, and the person saw the list in this roll call.
+
+## 2. At night — asking, with automatic replacement
+
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" ask --seats "<seats>" --progress "<night folder>/PROGRESS.md" --dir "<folder the helper may read>" [--who kimi] -
+```
+Question on standard input. The order is fixed:
+
+1. a live CLI → at a limit or failure, the next live CLI of another company;
+2. free keys, if they were set up and passed the roll call;
+3. a web chat — **only those marked жив in the roll call** (`дальше` in the answer names it);
+4. Claude's own critics: a fresh sub-agent with no memory of your reasoning — said out loud,
+   never passed off as another company.
+
+Every replacement is written to `PROGRESS.md` by the script («codex — лимит до 03:15; заменён:
+Kimi»). A CLI at its limit is marked «лимит до ЧЧ:ММ» in `seats.json` and comes back at the head of
+the line after that time by itself. Quote a helper's answer as theirs; do not tidy it. Programs run
+read-only: they may read and search, not change files or run commands.
+`team.py next --seats "<seats>"` shows the current route without asking anyone.
+
+## 3. At night — a web chat
+
+When `ask` says `"дальше": {"путь": "веб", …}`:
+
+1. **One site at a time, in its own new tab.** Opening two sites in one batch gives false "not
+   allowed" errors.
+2. **Never type a password.** A sign-in screen or a captcha → `web-mark --site <site> --status
+   "нужен вход"` (or `капча`) `--progress "<night folder>/PROGRESS.md"`, and go to the next live site,
+   then to Claude's own critics.
+3. **Paste by script into the page's input, not by keystrokes**, read the field back, press the
+   site's own Send button. A blind Cmd+V can land in another window.
+4. **Wait for the whole answer.** Keep the tab in front — a background tab stops generating
+   halfway. "Text stopped growing" is not "done": wait for the copy button, expand "Show more",
+   then read the answer's own block, not the whole page.
+5. **Check it is the answer**, not your question (Kimi repeats it on the page) and not an old one.
+6. Save it to `<night folder>/помощники/NN-<site>.md` with the address and the time, and count it:
+   `team.py web-mark --seats "<seats>" --site <site> --answered`.
 
 If the Poly A1 folder `Poly nov/agent/` is next to this plugin, it is the detailed, tested version
 of these steps — follow it (`01-browser-check.md`, `05-fan-out.md`, `07-collect-answers.md`,
-`12-known-pitfalls.md`; `13-own-browser.md` for a separate browser that does not take over the screen).
+`12-known-pitfalls.md`).
 
-## 4. At night — every two or three hours
+## 4. Every two or three hours
 
-Re-run the probe. Allowances come back; a helper dead at midnight may be alive at four. Write each
-change in `PROGRESS.md` → «Помощники»: who, when, why, replaced by whom.
+`team.py rollcall --out "<seats>"` again (the web results are kept). Allowances come back; a helper
+dead at midnight may be alive at four. For the morning report: `team.py used --seats "<seats>"` —
+who really answered, and how many times.

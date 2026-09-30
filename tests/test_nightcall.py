@@ -96,14 +96,142 @@ def test_team_probe_and_replacement():
     r = run([sys.executable, os.path.join(S, "team.py"), "probe", "--out", seats], env)
     data = json.load(open(seats, encoding="utf-8"))
     st = {s["программа"]: s["статус"] for s in data["помощники"]}
-    assert st == {"codex": "кончился запас", "grok": "кончился запас",
+    assert st == {"codex": "лимит", "grok": "лимит",
                   "qwen": "не вошли", "kimi": "жив"}, st
     # ask codex first: without seats it fails and kimi answers instead
     fake(bindir, "kimi", 'env | grep -q OPENAI_API_KEY && echo LEAK || echo "ответ kimi"')
     r = run([sys.executable, os.path.join(S, "team.py"), "ask", "--who", "codex", "-"], env, "вопрос")
     out = json.loads(r.stdout)
     assert out["ok"] and out["программа"] == "kimi" and out["ответ"] == "ответ kimi", out
-    assert out["не_смогли"][0]["статус"] == "кончился запас"
+    assert out["не_смогли"][0]["статус"] == "лимит"
+
+
+def team(args, env, inp=None):
+    return run([sys.executable, os.path.join(S, "team.py")] + args, env, inp)
+
+
+def test_rollcall_table_limit_time_and_missing():
+    if platform.system() == "Windows":
+        return
+    bindir = tempfile.mkdtemp()
+    fake(bindir, "claude", 'echo "ок"')
+    fake(bindir, "codex", 'echo "You have hit your usage limit. Try again at 3:15 AM." >&2; exit 1')
+    fake(bindir, "kimi", 'echo "ок"')
+    env = {"NIGHTCALL_PATH": bindir, "NIGHTCALL_HOME": tempfile.mkdtemp()}
+    seats = os.path.join(tempfile.mkdtemp(), "seats.json")
+    r = team(["rollcall", "--out", seats], env)
+    assert "нет программы" in r.stdout and "Grok" in r.stdout, r.stdout   # grok is not installed
+    assert "Claude (главный)" in r.stdout and "лимит до 03:15" in r.stdout, r.stdout
+    data = json.load(open(seats, encoding="utf-8"))
+    codex = next(s for s in data["помощники"] if s["программа"] == "codex")
+    assert codex["статус"] == "лимит" and codex["до"].endswith("03:15"), codex
+    assert all(s["программа"] != "claude" for s in data["помощники"])   # the main one is not a helper
+
+
+def test_web_marks_summary_and_no_helpers():
+    env = {"NIGHTCALL_PATH": tempfile.mkdtemp(), "NIGHTCALL_HOME": tempfile.mkdtemp()}
+    d = tempfile.mkdtemp()
+    seats = os.path.join(d, "seats.json")
+    team(["rollcall", "--out", seats], env)
+    r = team(["summary", "--seats", seats], env)
+    assert r.returncode == 1 and "только со своими" in r.stdout, r.stdout   # nobody alive: said honestly
+    team(["web-mark", "--seats", seats, "--browser", "жив"], env)
+    team(["web-mark", "--seats", seats, "--site", "chatgpt", "--status", "жив"], env)
+    team(["web-mark", "--seats", seats, "--site", "gemini", "--status", "нужен вход"], env)
+    team(["web-mark", "--seats", seats, "--site", "deepseek", "--status", "капча"], env)
+    assert team(["web-mark", "--seats", seats, "--site", "kimi", "--status", "может быть"], env).returncode == 2
+    data = json.load(open(seats, encoding="utf-8"))
+    assert {w["сайт"]: w["статус"] for w in data["веб"]} == {
+        "chatgpt": "жив", "gemini": "нужен вход", "deepseek": "капча"}
+    r = team(["summary", "--seats", seats], env)
+    assert r.returncode == 0 and "Запас: веб ChatGPT" in r.stdout, r.stdout
+    assert "Gemini: откройте" in r.stdout and "DeepSeek" in r.stdout, r.stdout
+    # the rollcall again keeps the browser results
+    team(["rollcall", "--out", seats], env)
+    assert len(json.load(open(seats, encoding="utf-8"))["веб"]) == 3
+    # only sites that passed the roll call are in the night route, Claude critics last
+    route = json.loads(team(["next", "--seats", seats], env).stdout)
+    assert [x["путь"] for x in route] == ["веб", "claude"] and route[0]["кто"] == "chatgpt", route
+    # a site that answered at night is counted for the morning; a site that later asks for sign-in is logged
+    prog = os.path.join(d, "PROGRESS.md")
+    team(["web-mark", "--seats", seats, "--site", "chatgpt", "--answered"], env)
+    team(["web-mark", "--seats", seats, "--site", "chatgpt", "--status", "нужен вход", "--progress", prog], env)
+    assert "ChatGPT: жив → нужен вход" in open(prog, encoding="utf-8").read()
+    assert "веб:chatgpt — ответов: 1" in team(["used", "--seats", seats], env).stdout
+
+
+def test_replacement_order_cli_key_web_claude_and_limit_comes_back():
+    if platform.system() == "Windows":
+        return
+    import http.server
+    import threading
+    seen = {}
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            seen["auth"] = self.headers.get("Authorization")
+            self.rfile.read(int(self.headers["Content-Length"]))
+            body = json.dumps({"choices": [{"message": {"content": "ответ по ключу"}}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    bindir, home, d = tempfile.mkdtemp(), tempfile.mkdtemp(), tempfile.mkdtemp()
+    fake(bindir, "codex", 'echo "ok"')
+    fake(bindir, "kimi", 'echo "ok"')
+    with open(os.path.join(home, "free-keys.env"), "w") as fh:
+        fh.write("GROQ_API_KEY=free-test-key\n")
+    env = {"NIGHTCALL_PATH": bindir, "NIGHTCALL_HOME": home,
+           "NIGHTCALL_KEY_URL_GROQ": "http://127.0.0.1:%d/v1/chat/completions" % srv.server_port}
+    seats = os.path.join(d, "seats.json")
+    prog = os.path.join(d, "PROGRESS.md")
+    team(["rollcall", "--out", seats], env)
+    team(["web-mark", "--seats", seats, "--site", "kimi", "--status", "жив"], env)
+    route = json.loads(team(["next", "--seats", seats], env).stdout)
+    assert [(x["путь"], x["кто"]) for x in route] == [
+        ("cli", "codex"), ("cli", "kimi"), ("ключ", "groq"), ("веб", "kimi"), ("claude", "claude-critics")], route
+    # at night: codex hits the limit (reset time in 1 hour), kimi breaks -> the free key answers
+    fake(bindir, "codex", 'echo "Rate limit reached, resets in 1h" >&2; exit 1')
+    fake(bindir, "kimi", 'echo "segfault" >&2; exit 3')
+    out = json.loads(team(["ask", "--seats", seats, "--progress", prog, "-"], env, "вопрос").stdout)
+    assert out["ok"] and out["путь"] == "ключ" and out["ответ"] == "ответ по ключу", out
+    assert seen["auth"] == "Bearer free-test-key"
+    log = open(prog, encoding="utf-8").read()
+    assert "лимит до" in log and "заменён: Groq" in log, log
+    # the key breaks too -> the answer points to the live web chat, then Claude's own critics
+    srv.shutdown()
+    srv.server_close()
+    out = json.loads(team(["ask", "--seats", seats, "--progress", prog, "-"], env, "вопрос").stdout)
+    assert not out["ok"] and out["дальше"]["путь"] == "веб" and out["запас"][-1]["путь"] == "claude", out
+    # codex's limit time passes -> it is back at the head of the route
+    data = json.load(open(seats, encoding="utf-8"))
+    for s in data["помощники"]:
+        if s["программа"] == "codex":
+            s["до"] = (datetime.datetime.now() - datetime.timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M")
+    json.dump(data, open(seats, "w", encoding="utf-8"), ensure_ascii=False)
+    fake(bindir, "codex", 'echo "снова тут"')
+    out = json.loads(team(["ask", "--seats", seats, "-"], env, "вопрос").stdout)
+    assert out["ok"] and out["программа"] == "codex", out
+    used = team(["used", "--seats", seats], env).stdout
+    assert "ключ:groq" in used and "cli:codex" in used, used
+    # the key value is never written to seats.json
+    assert "free-test-key" not in open(seats, encoding="utf-8").read()
+
+
+def test_reset_time_parsing():
+    sys.path.insert(0, S)
+    import team as T
+    base = datetime.datetime(2026, 9, 30, 23, 0)
+    assert T.reset_time("resets at 3am", base).strftime("%d %H:%M") == "01 03:00"
+    assert T.reset_time("Try again at 14:30", base).strftime("%H:%M") == "14:30"
+    assert T.reset_time("limit, resets in 2h 15m", base).strftime("%H:%M") == "01:15"
+    assert T.reset_time("You are out of credits", base) is None
 
 
 def test_night_begin_arm_hook_end():

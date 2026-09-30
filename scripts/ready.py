@@ -10,6 +10,7 @@ thing for the person to look at). Nothing is changed on the computer: this only 
 
 import argparse
 import glob
+import json
 import os
 import platform
 import shutil
@@ -124,14 +125,34 @@ def check_claude():
         "Наберите /usage и посмотрите, сколько осталось. Ночной цикл сам подождёт сброса и продолжит.")
 
 
-def check_team():
+def check_team(folder):
     out = sh([sys.executable, os.path.join(HERE, "team.py"), "list"], timeout=20)
     n = sum(1 for line in out.splitlines() if line.startswith("  "))
     if n:
-        row("ОК", f"Других ИИ-программ по подписке: {n}. Кто жив — проверит /nightcall:team.")
+        row("ОК", f"Других ИИ-программ по подписке найдено: {n}. Живы ли — покажет перекличка.")
     else:
-        row("СЛЕДИТЕ", "Других ИИ-программ нет — помощники будут через бесплатные веб-чаты.",
-            "Войдите в браузере в 2–3 чата других компаний (ChatGPT, Gemini, Grok, DeepSeek…).")
+        row("СЛЕДИТЕ", "Других ИИ-программ по подписке нет — запас: бесплатные ключи и веб-чаты в Chrome.",
+            "Поставьте и войдите хотя бы в одну (codex, gemini/agy, kimi, grok, qwen) — или войдите "
+            "в Chrome в 2–3 веб-чата (ChatGPT, Gemini, Kimi, DeepSeek, Meta AI).")
+    seats = os.path.join(folder, "seats.json") if folder else ""
+    if seats and os.path.exists(seats):
+        try:
+            data = json.load(open(seats, encoding="utf-8"))
+        except ValueError:
+            data = {}
+        alive = [s for s in data.get("помощники", []) + data.get("ключи", []) if s.get("статус") == "жив"]
+        web = [w for w in data.get("веб", []) if w.get("статус") == "жив"]
+        if alive or web:
+            row("ОК", f"Перекличка пройдена: живых программ/ключей {len(alive)}, веб-чатов в запасе {len(web)}.")
+        else:
+            row("НЕ", "Перекличка: ни одного живого помощника другой компании — ночь пройдёт только "
+                "со своими критиками Claude.", "Войдите в программу или веб-чат сейчас и повторите перекличку.")
+        if not data.get("веб"):
+            row("СЛЕДИТЕ", "Браузер ещё не проверен: веб-чаты — запас на случай лимитов.",
+                "Скилл /nightcall:ready, шаг «Перекличка браузера» — пока вы рядом.")
+    else:
+        row("СЛЕДИТЕ", "Переклички ещё не было: живость помощников не проверена.",
+            "Скилл /nightcall:ready делает её сам: программы, ключи и веб-чаты в Chrome.")
 
 
 def check_folder(folder):
@@ -148,7 +169,7 @@ def main():
     ap.add_argument("--dir", help="папка задачи")
     a = ap.parse_args()
     check_power(); check_awake(); check_updates(); check_network()
-    check_disk(a.dir); check_claude(); check_team(); check_folder(a.dir)
+    check_disk(a.dir); check_claude(); check_team(a.dir); check_folder(a.dir)
     print("Перед ночью:")
     for state, what, do in rows:
         print(f"  {state:<8} {what}" + (f"\n           → {do}" if do else ""))

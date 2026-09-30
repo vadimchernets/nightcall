@@ -55,15 +55,28 @@ night). `/nightcall:ready` checks what can be checked.
 
 ## Helper AIs
 
-Claude is the main agent. Helpers are programs of **other companies** you already have by
-subscription: `codex` (ChatGPT), `agy`/`gemini`, `grok`, `kimi`, `qwen`. Each is checked with a
-short question before the night; one out of allowance or not signed in is skipped, and the next
-live one gets the question. No programs at all → Claude opens free chats in your browser, pastes
-the question and takes the answer back.
+Claude is the main agent. Helpers are AIs of **other companies** you already have.
+
+**The roll call — before you leave** (`/nightcall:ready`, and the first step of `/nightcall:start`):
+
+1. every program by subscription — `codex` (ChatGPT), `agy`/`gemini`, `grok`, `kimi`, `qwen` — and
+   every free key you set up (course step 12A: OpenRouter, Groq, Google AI Studio) gets a test
+   question: **жив / лимит (до ЧЧ:ММ) / не вошли / нет программы**;
+2. Chrome: Claude in Chrome connected, a tab opens, and each web chat you use (ChatGPT, Gemini,
+   Kimi, DeepSeek, Meta AI…) shows an input field and answers a test question — or is marked
+   «нужен вход» / «капча». Anything to allow or sign in, you do now, not at night;
+3. «Ночью работают: …; запас: …; не работает: … — что сделать сейчас».
+
+**At night** the order is fixed: a live program → the next program → free keys → a web chat that
+passed the roll call (one site at a time, no passwords) → Claude's own critics. Every replacement is
+a line in `PROGRESS.md`; a program at its limit comes back after the reset time; `MORNING.md` says
+who really took part.
 
 ```
-python3 scripts/team.py probe --out seats.json
-echo "Чего не хватает в этом плане?" | python3 scripts/team.py ask --seats seats.json -
+python3 scripts/team.py rollcall --out seats.json
+python3 scripts/team.py web-mark --seats seats.json --site chatgpt --status жив
+python3 scripts/team.py summary --seats seats.json
+echo "Чего не хватает в этом плане?" | python3 scripts/team.py ask --seats seats.json --progress PROGRESS.md -
 ```
 
 ## The sturdiest night: the loop
@@ -89,3 +102,7 @@ Stops by itself at the end time, on `MORNING.md`, on a file named `STOP` in the 
 ## License
 
 Apache-2.0. Ideas borrowed from open source are credited in [NOTICE](NOTICE).
+
+---
+
+Note: some web services' terms of use are against automated use — that is why web chats are only the reserve by default, and you see the list in the roll call before the night.

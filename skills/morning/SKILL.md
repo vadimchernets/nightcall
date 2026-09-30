@@ -15,6 +15,8 @@ Answer in the person's language. Find the night folder: the argument, or `python
 ## 1. Read, do not remember
 
 Read `TASK.md`, `PLAN.md`, `PROGRESS.md`, and `git log --oneline` if the folder is under git.
+Who of the helpers really answered: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" used --seats
+"<folder>/seats.json"` (program, key or web chat, and how many answers).
 The report is built **only** from these. A step with no line in `PROGRESS.md` saying how it was
 checked is not "done" — it is «сделано, не проверено».
 
@@ -38,7 +40,7 @@ checked is not "done" — it is «сделано, не проверено».
 - <decision> — выбрано: <value> — поменять: <how>
 
 ## Помощники
-- <who answered, who fell out and why, who replaced whom>
+- <who really answered (from `team.py used`), who fell out and why, who replaced whom, whose limit came back when>
 
 ## Дальше
 - <the next step if the person wants to continue tonight>

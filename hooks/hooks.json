@@ -1,0 +1,16 @@
+{
+  "description": "Nightcall: while a night run is on (see /nightcall:start), a finished turn is sent back to the next step instead of stopping. Off by itself at the end time, on MORNING.md, or on a STOP file in the task folder.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

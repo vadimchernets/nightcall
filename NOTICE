@@ -1,0 +1,19 @@
+Nightcall
+Copyright 2026 Vadym Chernets
+
+This product includes software developed by Vadym Chernets, as part of Poly A1.
+
+Ideas (not code) taken from, with thanks:
+- Anthropic, "Effective harnesses for long-running agents" - plan and progress file carried
+  between sessions, one step at a time, a fixed definition of done.
+  https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+- The Ralph loop (Geoffrey Huntley) and Anthropic's ralph-wiggum plugin for Claude Code - a Stop
+  hook that sends a finished turn back to work, with a ceiling on rounds.
+  https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum
+- continuous-claude (Anand Chowdhary) - a fresh `claude -p` per round, notes between rounds.
+  https://github.com/AnandChowdhary/continuous-claude
+- OODA-loop - a HALT file as the person's off switch. https://github.com/mataeil/OODA-loop
+- Waiting out the subscription limit and resuming: autoresume, claude-auto-retry.
+  https://github.com/abhiramnajith/autoresume  https://github.com/cheapestinference/claude-auto-retry
+- Command lines for other AI programs, and the "allowance ran out" patterns, from the author's own
+  V1 Synthesizer (packages/synthesizer/real-deps.mjs).

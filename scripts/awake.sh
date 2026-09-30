@@ -7,8 +7,9 @@ case "$(uname -s)" in
   Darwin) exec bash "$here/awake-mac.sh" "$@";;
   Linux)  exec bash "$here/awake-linux.sh" "$@";;
   MINGW*|MSYS*|CYGWIN*)
-    h=${1:-8}
+    h=${1:-}
     case "$h" in
+      ""|-h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
       stop) exec powershell -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$here/awake-windows.ps1" 2>/dev/null || echo "$here/awake-windows.ps1")" -Stop;;
       status) exec powershell -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$here/awake-windows.ps1" 2>/dev/null || echo "$here/awake-windows.ps1")" -Status;;
       *m) exec powershell -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$here/awake-windows.ps1" 2>/dev/null || echo "$here/awake-windows.ps1")" -Minutes "${h%m}";;

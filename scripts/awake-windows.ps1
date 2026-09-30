@@ -1,4 +1,4 @@
-# Nightcall - keep a Windows computer awake for the night, then let it sleep again by itself.
+﻿# Nightcall - keep a Windows computer awake for the night, then let it sleep again by itself.
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File awake-windows.ps1 -Hours 8
 #   powershell -NoProfile -ExecutionPolicy Bypass -File awake-windows.ps1 -Hours 12

@@ -90,9 +90,17 @@ cmd_start() {
     if kill -0 "$pid" 2>/dev/null; then how="gnome-session-inhibit"; else pid=""; fi
   fi
   if [ -z "$pid" ]; then
-    # Last resort: every 50 s tell the screensaver the user is here, until the time is up.
+    # Last resort: every 50 s (or less, near the end) tell the screensaver the user is here,
+    # until the time is up. The step is capped to what's left so a short spell (a test run, or
+    # the last stretch of a long one) ends on time instead of overshooting by up to 50 s.
     end=$(( $(date +%s) + secs ))
-    pid=$(start_bg sh -c "while [ \$(date +%s) -lt $end ]; do xdg-screensaver reset 2>/dev/null || xset s reset 2>/dev/null; sleep 50; done")
+    pid=$(start_bg sh -c "while [ \$(date +%s) -lt $end ]; do
+      xdg-screensaver reset 2>/dev/null || xset s reset 2>/dev/null
+      left=\$(( $end - \$(date +%s) ))
+      [ \"\$left\" -gt 50 ] && left=50
+      [ \"\$left\" -gt 0 ] || break
+      sleep \"\$left\"
+    done")
     how="запасной путь: сброс заставки каждые 50 с (сон по таймеру он держит не везде)"
   fi
 
@@ -107,7 +115,7 @@ cmd_start() {
   on_ac=""
   for f in /sys/class/power_supply/*/online; do [ -f "$f" ] && [ "$(cat "$f")" = "1" ] && on_ac=1; done
   ls /sys/class/power_supply/BAT* >/dev/null 2>&1 || on_ac=1   # no battery = desktop
-  [ -n "$on_ac" ] && say "  питание: от сети — хорошо." || say "  ВНИМАНИЕ: сейчас от батареи — подключите зарядку."
+  if [ -n "$on_ac" ]; then say "  питание: от сети — хорошо."; else say "  ВНИМАНИЕ: сейчас от батареи — подключите зарядку."; fi
   say "  Снять раньше: bash \"$0\" stop"
 }
 

@@ -12,8 +12,17 @@ second head — and in the morning you read what was done, what was not, and wha
 
 ## Install
 
+From the Poly A1 folder (nothing downloaded):
+
 ```
-/plugin marketplace add vadimchernets/nightcall
+/plugin marketplace add <path to the Poly A1 folder>
+/plugin install nightcall@poly-a1
+```
+
+From this folder on its own:
+
+```
+/plugin marketplace add <path to the nightcall folder>
 /plugin install nightcall@nightcall
 ```
 

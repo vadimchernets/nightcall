@@ -79,6 +79,14 @@ Claude» — and offer to fix one thing before the person leaves. After a fix, r
 Web chats are the **reserve** by default: they are used at night only when the programs and keys
 are out, and the person saw the list in this roll call.
 
+**One choice for the person: web chats at night or in the morning.** Ask it in one line with the
+default in it: «Веб-чаты, прошедшие перекличку, — ночной запас после программ и ключей (web: night).
+Если хотите, чтобы ночью браузер не трогали, — web: morning: вопросы для них лягут в утро-совет.md.
+Молчание — night.» Record the answer:
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" web-when --seats "<seats>" night   # or morning
+```
+
 ## 2. At night — asking, with automatic replacement
 
 ```
@@ -88,7 +96,9 @@ Question on standard input. The order is fixed:
 
 1. a live CLI → at a limit or failure, the next live CLI of another company;
 2. free keys, if they were set up and passed the roll call;
-3. a web chat — **only those marked жив in the roll call** (`дальше` in the answer names it);
+3. a web chat — **only those marked жив in the roll call** (`дальше` in the answer names it), and
+   only with `web: night`; with `web: morning` the script itself appends the question to
+   `<night folder>/утро-совет.md` (`"утро_совет"` in the answer) and the night goes on with step 4;
 4. Claude's own critics: a fresh sub-agent with no memory of your reasoning — said out loud,
    never passed off as another company.
 

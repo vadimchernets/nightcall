@@ -70,11 +70,20 @@ Claude is the main agent. Helpers are AIs of **other companies** you already hav
 **At night** the order is fixed: a live program → the next program → free keys → a web chat that
 passed the roll call (one site at a time, no passwords) → Claude's own critics. Every replacement is
 a line in `PROGRESS.md`; a program at its limit comes back after the reset time; `MORNING.md` says
-who really took part.
+who really took part. Your one choice at the roll call: `web: night` (default — web chats are the
+night reserve) or `web: morning` (`team.py web-when --seats seats.json morning`) — then a question
+meant for a web chat is saved in `утро-совет.md` for the morning.
+
+**Every night has a safety net, made by itself:** `night.py begin` makes a restore point in the task
+folder (no git → `git init` + a commit «перед ночью»; git → a commit + a tag `nightcall-before-<time>`)
+and writes the fence rule into the folder's `CLAUDE.md`: work only inside this folder. The night is
+bound to the Claude Code window that started it (`arm --session`), never to another open window.
+The morning report starts with **«Нужно Ваше решение»**, then done / not done / to check / who took part.
 
 ```
 python3 scripts/team.py rollcall --out seats.json
 python3 scripts/team.py web-mark --seats seats.json --site chatgpt --status жив
+python3 scripts/team.py web-when --seats seats.json night      # or morning
 python3 scripts/team.py summary --seats seats.json
 echo "Чего не хватает в этом плане?" | python3 scripts/team.py ask --seats seats.json --progress PROGRESS.md -
 ```

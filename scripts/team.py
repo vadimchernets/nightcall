@@ -7,7 +7,9 @@ Claude is the main agent for the night. Its helpers are AIs of OTHER companies, 
   1. programs by subscription already on this computer (codex, agy/gemini, grok, kimi, qwen);
   2. free keys, only if the person set them up earlier (course step 12A): OpenRouter free models,
      Groq, Google AI Studio - read from the environment or ~/.nightcall/free-keys.env;
-  3. web chats in the person's own Chrome - only the sites that passed the roll call (web-mark);
+  3. web chats in the person's own Chrome - only the sites that passed the roll call (web-mark),
+     and only if the person chose `web: night` (default); with `web: morning` the question that
+     would have gone to a web chat is saved in <folder>/утро-совет.md for the morning;
   4. Claude's own critics (a fresh sub-agent) - when nobody else is left, said out loud.
 
     python3 team.py list                              # who is installed
@@ -15,6 +17,7 @@ Claude is the main agent for the night. Its helpers are AIs of OTHER companies, 
     python3 team.py probe [--out seats.json]          # same as rollcall (old name)
     python3 team.py web-sites                         # the web chats to check in Chrome
     python3 team.py web-mark --seats S --site chatgpt --status жив|нужен вход|капча|не открылся
+    python3 team.py web-when --seats S night|morning  # the person's choice: web chats at night (default) or questions saved for the morning
     python3 team.py summary --seats seats.json        # «Ночью работают / запас / не работает / что сделать»
     python3 team.py ask [--who codex] [--seats S] [--progress PROGRESS.md] -   # question on stdin
     python3 team.py next --seats seats.json           # the route for the next question, no call made
@@ -275,6 +278,10 @@ def usable(s):
     return s.get("статус") == "жив" or limit_passed(s)
 
 
+def web_when(seats):
+    return "morning" if (seats or {}).get("веб_когда") == "morning" else "night"
+
+
 def route(seats, found=None, keys=None):
     """The order of replacement for the next question: CLI -> free key -> web -> Claude critics."""
     seats = seats or {}
@@ -290,7 +297,7 @@ def route(seats, found=None, keys=None):
         if s is None or usable(s):
             order.append({"путь": "ключ", "кто": k["ключ"], "имя": k["имя"]})
     for w in seats.get("веб", []):
-        if w.get("статус") == "жив":
+        if w.get("статус") == "жив" and web_when(seats) == "night":
             order.append({"путь": "веб", "кто": w["сайт"], "имя": w.get("имя", w["сайт"]),
                           "адрес": w.get("адрес", "")})
     order.append({"путь": "claude", "кто": "claude-critics",
@@ -366,7 +373,7 @@ def cmd_rollcall(args):
     table(rows)
     seats = {"проверено": now().strftime("%Y-%m-%d %H:%M"), "помощники": cli, "ключи": keys,
              "веб": old.get("веб", []), "браузер": old.get("браузер", {}),
-             "участвовали": old.get("участвовали", {})}
+             "участвовали": old.get("участвовали", {}), "веб_когда": web_when(old)}
     if args.out:
         save_seats(args.out, seats)
         print(f"Записал в {args.out}. Дальше — браузер (скилл team, «Перекличка браузера»), "
@@ -415,6 +422,27 @@ def cmd_web_mark(args):
     return 0
 
 
+def cmd_web_when(args):
+    seats = load_seats(args.seats) or {"помощники": [], "ключи": [], "веб": []}
+    seats["веб_когда"] = args.when
+    save_seats(args.seats, seats)
+    print("веб-чаты: " + ("ночной запас (после программ и ключей)" if args.when == "night" else
+                          "утром — ночью вопрос для них ложится в утро-совет.md"))
+    return 0
+
+
+def save_for_morning(args, prompt):
+    folder = args.dir or (os.path.dirname(os.path.abspath(args.seats)) if args.seats else os.getcwd())
+    path = os.path.join(folder, "утро-совет.md")
+    new = not os.path.exists(path)
+    with open(path, "a", encoding="utf-8") as fh:
+        if new:
+            fh.write("# Вопросы для веб-чатов — утром\n\nВы выбрали «web: morning»: ночью эти вопросы не "
+                     "ушли в веб-чаты. Утром их можно задать ChatGPT, Gemini, Kimi… по одному.\n")
+        fh.write(f"\n## {now():%d.%m %H:%M}\n\n{prompt.strip()}\n")
+    return path
+
+
 def summarize(seats):
     work, reserve, broken, todo = [], [], [], []
     for s in seats.get("помощники", []):
@@ -439,7 +467,7 @@ def summarize(seats):
         todo.append("браузер: поставить/включить расширение Claude in Chrome и нажать «Разрешить» сейчас")
     for w in seats.get("веб", []):
         if w["статус"] == "жив":
-            reserve.append(f"веб {w['имя']}")
+            reserve.append(f"веб {w['имя']}" + (" (утром)" if web_when(seats) == "morning" else ""))
         else:
             broken.append(f"веб {w['имя']} — {w['статус']}")
             if w["статус"] in ("нужен вход", "капча"):
@@ -514,15 +542,20 @@ def cmd_ask(args):
             return 0
         tried.append({"кто": x["имя"], "статус": r["статус"], "почему": r["почему"]})
         mark(args.seats, x, r)
-    rest = [x for x in route(load_seats(args.seats), found, keys) if x["путь"] in ("веб", "claude")]
+    now_seats = load_seats(args.seats)
+    rest = [x for x in route(now_seats, found, keys) if x["путь"] in ("веб", "claude")]
     nxt = rest[0]
+    morning = None
+    if web_when(now_seats) == "morning" and any(w.get("статус") == "жив" for w in (now_seats or {}).get("веб", [])):
+        morning = save_for_morning(args, prompt)
+        log_progress(args.progress, f"вопрос для веб-чатов отложен на утро: {morning}")
     if tried:
         log_progress(args.progress, "; ".join(f"{t['кто']} — {t['почему']}" for t in tried)
                      + f"; дальше: {nxt['имя']}")
     print(json.dumps({"ok": False, "не_смогли": tried,
                       "почему": "ни одна программа и ни один ключ не ответили" if tried else
                       "живых программ и ключей других компаний нет",
-                      "дальше": nxt, "запас": rest}, ensure_ascii=False))
+                      "дальше": nxt, "запас": rest, "утро_совет": morning}, ensure_ascii=False))
     return 1
 
 
@@ -560,6 +593,9 @@ def main(argv=None):
     w.add_argument("--browser", help="состояние самого браузера: жив | нет расширения | нет разрешения")
     w.add_argument("--answered", action="store_true", help="сайт ответил на вопрос ночью (для утра)")
     w.add_argument("--progress", help="PROGRESS.md: записать смену состояния")
+    ww = sub.add_parser("web-when")
+    ww.add_argument("--seats", required=True)
+    ww.add_argument("when", choices=["night", "morning"], help="night — веб-чаты ночной запас; morning — вопросы утром")
     for name in ("summary", "next", "used"):
         p = sub.add_parser(name)
         p.add_argument("--seats", required=True)
@@ -573,7 +609,7 @@ def main(argv=None):
                    help="не переходить к следующему, если первый не ответил")
     args = ap.parse_args(argv)
     return {"list": cmd_list, "rollcall": cmd_rollcall, "probe": cmd_rollcall,
-            "web-sites": cmd_web_sites, "web-mark": cmd_web_mark, "summary": cmd_summary,
+            "web-sites": cmd_web_sites, "web-mark": cmd_web_mark, "web-when": cmd_web_when, "summary": cmd_summary,
             "next": cmd_next, "used": cmd_used, "ask": cmd_ask}[args.cmd](args)
 
 

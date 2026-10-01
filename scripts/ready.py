@@ -147,6 +147,8 @@ def check_team(folder):
         else:
             row("НЕ", "Перекличка: ни одного живого помощника другой компании — ночь пройдёт только "
                 "со своими критиками Claude.", "Войдите в программу или веб-чат сейчас и повторите перекличку.")
+        if data.get("веб_когда") == "morning":
+            row("ОК", "Веб-чаты: утром (web: morning) — ночью вопрос для них ляжет в утро-совет.md.")
         if not data.get("веб"):
             row("СЛЕДИТЕ", "Браузер ещё не проверен: веб-чаты — запас на случай лимитов.",
                 "Скилл /nightcall:ready, шаг «Перекличка браузера» — пока вы рядом.")
@@ -156,12 +158,24 @@ def check_team(folder):
 
 
 def check_folder(folder):
+    """The safety net of the night: a restore point and the fence (step 13A). Never a refusal:
+    whatever is missing, `night.py begin` makes it by itself."""
     if not folder:
         return
-    if os.path.isdir(os.path.join(folder, ".git")) or sh(["git", "-C", folder, "rev-parse", "--git-dir"]).strip():
-        row("ОК", "Папка задачи под git — каждый шаг можно будет откатить.")
+    tags = sh(["git", "-C", folder, "tag", "--list", "nightcall-before-*"]).split()
+    if tags:
+        row("ОК", f"Точка возврата: есть (git-тег {sorted(tags)[-1]}) — утром всё можно откатить.")
+    elif os.path.isdir(folder) and sh(["git", "-C", folder, "rev-parse", "--git-dir"]).strip():
+        row("ОК", "Точка возврата: будет создана — night.py begin сделает коммит и тег «перед ночью».")
     else:
-        row("СЛЕДИТЕ", "Папка задачи не под git.", "Nightcall сам сделает git init, если вы не против.")
+        row("ОК", "Точка возврата: будет создана — night.py begin сделает git init и коммит «перед ночью».")
+    claude_md = os.path.join(folder, "CLAUDE.md")
+    try:
+        fenced = "nightcall:fence" in open(claude_md, encoding="utf-8").read()
+    except OSError:
+        fenced = False
+    row("ОК", "Забор (13A): " + ("есть — в CLAUDE.md папки «работать только в этой папке»." if fenced else
+                                "будет вписан в CLAUDE.md папки при night.py begin."))
 
 
 def main():

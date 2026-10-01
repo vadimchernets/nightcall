@@ -1,6 +1,6 @@
 ---
 name: ready
-description: The checklist and the roll call before leaving the computer working for the night - power, sleep and the laptop lid, system updates that restart at night, network, disk space, Claude Code permissions that would stop the night on the first question, the subscription limit, git for undo - and which helper AIs are really alive - subscription programs with a test question, free keys, and Chrome with the web chats the person is signed in to, with "Allow" pressed now while the person is still here. Use before a night run, or when the person says "что нужно, чтобы ночью всё работало", "проверь перед ночью", "перекличка", "ready for overnight".
+description: The checklist and the roll call before leaving the computer working for the night - power, sleep and the laptop lid, system updates that restart at night, network, disk space, Claude Code permissions that would stop the night on the first question, the subscription limit, the restore point and the fence (made by itself if missing) - and which helper AIs are really alive - subscription programs with a test question, free keys, and Chrome with the web chats the person is signed in to, with "Allow" pressed now while the person is still here. Use before a night run, or when the person says "что нужно, чтобы ночью всё работало", "проверь перед ночью", "перекличка", "ready for overnight".
 argument-hint: "[task folder]"
 allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(date*) Read Write ToolSearch
 ---

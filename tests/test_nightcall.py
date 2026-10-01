@@ -269,6 +269,89 @@ def test_night_begin_arm_hook_end():
     assert not os.path.exists(act)
 
 
+def test_begin_always_makes_restore_point_and_fence():
+    if shutil.which("git") is None:
+        return
+    home = tempfile.mkdtemp()
+    env = {"NIGHTCALL_HOME": home}
+    night = [sys.executable, os.path.join(S, "night.py")]
+    # a folder that is not code and not under git: git init + commit «перед ночью» + tag + fence
+    folder = tempfile.mkdtemp()
+    open(os.path.join(folder, "заметки.txt"), "w").write("вечер")
+    r = run(night + ["begin", "--dir", folder], env, "перепиши заметки")
+    assert r.returncode == 0 and "точка возврата: git-тег nightcall-before-" in r.stdout, r.stdout + r.stderr
+    log = run(["git", "-C", folder, "log", "--format=%s"]).stdout
+    assert "nightcall: перед ночью" in log and "nightcall: забор на ночь" in log, log
+    tag = run(["git", "-C", folder, "tag", "--list", "nightcall-before-*"]).stdout.split()[0]
+    files = run(["git", "-c", "core.quotepath=false", "-C", folder, "ls-tree", "--name-only", tag]).stdout
+    assert "заметки.txt" in files, files
+    fence = open(os.path.join(folder, "CLAUDE.md"), encoding="utf-8").read()
+    assert "nightcall:fence" in fence and "ТОЛЬКО внутри этой папки" in fence and folder in fence
+    assert "reset --hard " + tag in fence
+    # a git folder with the person's own CLAUDE.md: kept, uncommitted work committed, fence replaced not doubled
+    open(os.path.join(folder, "CLAUDE.md"), "w").write("# Мои правила\n")
+    open(os.path.join(folder, "новое.txt"), "w").write("не закоммичено")
+    run(night + ["begin", "--dir", folder], env, "")
+    text = open(os.path.join(folder, "CLAUDE.md"), encoding="utf-8").read()
+    assert text.startswith("# Мои правила") and text.count("nightcall:fence") == 1, text
+    assert run(["git", "-C", folder, "status", "--porcelain"]).stdout.strip() == ""
+    # ready shows the restore point
+    r = run([sys.executable, os.path.join(S, "ready.py"), "--dir", folder], env)
+    assert "Точка возврата: есть" in r.stdout and "Забор (13A): есть" in r.stdout, r.stdout
+    fresh = tempfile.mkdtemp()
+    r = run([sys.executable, os.path.join(S, "ready.py"), "--dir", fresh], env)
+    assert "Точка возврата: будет создана" in r.stdout and "Забор (13A): будет вписан" in r.stdout, r.stdout
+
+
+def test_hook_bound_to_the_session_that_armed_the_night():
+    home = tempfile.mkdtemp()
+    folder = os.path.join(tempfile.mkdtemp(), "ночь")
+    env = {"NIGHTCALL_HOME": home}
+    night = [sys.executable, os.path.join(S, "night.py")]
+    hook = [sys.executable, os.path.join(ROOT, "hooks", "stop.py")]
+    run(night + ["begin", "--dir", folder], env, "задача")
+    run(night + ["arm", "--dir", folder, "--session", "NIGHT"], env)
+    # another window finishes its turn first: it is NOT caught, and the night stays with NIGHT
+    assert run(hook, env, json.dumps({"session_id": "OTHER", "cwd": folder})).stdout.strip() == ""
+    assert '"block"' in run(hook, env, json.dumps({"session_id": "NIGHT", "cwd": "/"})).stdout
+    assert json.load(open(os.path.join(home, "active.json")))["session"] == "NIGHT"
+    # an unexpanded ${CLAUDE_SESSION_ID} is no session: bind only a window working in the task folder
+    run(night + ["arm", "--dir", folder, "--session", "${CLAUDE_SESSION_ID}"], env)
+    assert run(hook, env, json.dumps({"session_id": "ELSE", "cwd": tempfile.mkdtemp()})).stdout.strip() == ""
+    assert '"block"' in run(hook, env, json.dumps({"session_id": "MINE", "cwd": folder})).stdout
+    assert run(hook, env, json.dumps({"session_id": "ELSE", "cwd": folder})).stdout.strip() == ""
+
+
+def test_web_when_morning_saves_question():
+    bindir, home, d = tempfile.mkdtemp(), tempfile.mkdtemp(), tempfile.mkdtemp()
+    env = {"NIGHTCALL_PATH": bindir, "NIGHTCALL_HOME": home}
+    seats = os.path.join(d, "seats.json")
+    team(["rollcall", "--out", seats], env)
+    team(["web-mark", "--seats", seats, "--site", "chatgpt", "--status", "жив"], env)
+    route = json.loads(team(["next", "--seats", seats], env).stdout)
+    assert route[0]["путь"] == "веб"          # default: web chats are the night reserve
+    assert json.load(open(seats, encoding="utf-8")).get("веб_когда", "night") == "night"
+    team(["web-when", "--seats", seats, "morning"], env)
+    route = json.loads(team(["next", "--seats", seats], env).stdout)
+    assert [x["путь"] for x in route] == ["claude"], route
+    out = json.loads(team(["ask", "--seats", seats, "--dir", d, "-"], env, "Чего не хватает в плане?").stdout)
+    assert out["утро_совет"] == os.path.join(d, "утро-совет.md") and out["дальше"]["путь"] == "claude"
+    assert "Чего не хватает в плане?" in open(out["утро_совет"], encoding="utf-8").read()
+    # the choice survives the next roll call
+    team(["rollcall", "--out", seats], env)
+    assert json.load(open(seats, encoding="utf-8"))["веб_когда"] == "morning"
+    assert "(утром)" in team(["summary", "--seats", seats], env).stdout
+
+
+def test_morning_template_puts_the_decision_first():
+    text = open(os.path.join(ROOT, "skills", "morning", "SKILL.md"), encoding="utf-8").read()
+    heads = [h for h in ("## Нужно Ваше решение", "## Сделано", "## Не сделано", "## Проверить", "## Кто участвовал")]
+    pos = [text.index(h) for h in heads]
+    assert pos == sorted(pos), pos
+    loop = open(os.path.join(S, "night-loop.sh"), encoding="utf-8").read()
+    assert "«Нужно Ваше решение»" in loop and "веб_когда" in loop and "night.py\" begin" in loop
+
+
 def test_ready_runs():
     r = run([sys.executable, os.path.join(S, "ready.py")], {"NIGHTCALL_HOME": tempfile.mkdtemp()})
     assert "Перед ночью" in r.stdout and "Итого" in r.stdout, r.stdout + r.stderr

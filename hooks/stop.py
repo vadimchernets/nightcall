@@ -6,7 +6,9 @@ The Ralph-loop idea (github.com/anthropics/claude-code, plugins/ralph-wiggum): w
 finishes a turn, a Stop hook can send it back to work. Here it only does so while ALL of these hold:
 
   * ~/.nightcall/active.json exists (written by /nightcall:start, removed by /nightcall:morning);
-  * the run belongs to THIS session (the first stop binds the session id; other windows are free);
+  * the run belongs to THIS session: `night.py arm --session` records the session that started the
+    night, and only that session is sent back. An old arm without a session binds the first stop
+    whose working folder is the task folder (or contains it) - never a window working elsewhere;
   * the night's end time has not passed;
   * the task folder has no MORNING.md (the report means the night is over) and no STOP file
     (the person's own off switch: create a file named STOP in the task folder);
@@ -19,6 +21,14 @@ import datetime
 import json
 import os
 import sys
+
+
+def related(cwd, folder):
+    """Without a recorded session: only a window working in the task folder (or above it) is bound."""
+    if not cwd:
+        return True
+    cwd, folder = os.path.realpath(cwd), os.path.realpath(folder)
+    return cwd == folder or cwd.startswith(folder + os.sep) or folder.startswith(cwd.rstrip(os.sep) + os.sep)
 
 
 def main():
@@ -35,10 +45,13 @@ def main():
         return 0
 
     session = event.get("session_id", "")
-    if run.get("session") and session and run["session"] != session:
-        return 0
     folder = run.get("folder", "")
     if not folder or not os.path.isdir(folder):
+        return 0
+    if run.get("session"):
+        if session != run["session"]:
+            return 0
+    elif not related(event.get("cwd", ""), folder):
         return 0
     if os.path.exists(os.path.join(folder, "MORNING.md")) or os.path.exists(os.path.join(folder, "STOP")):
         return 0

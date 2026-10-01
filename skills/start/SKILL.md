@@ -24,6 +24,8 @@ setting. Everything that needs them happens in the next five minutes, before the
    a test answer; any «Разрешить» — the person presses it now; c) `team.py summary` — «Ночью
    работают: …; запас: …; не работает: … — что сделать сейчас». No live helper of another company →
    say honestly the night will run with Claude's own critics only, and offer one fix before they go.
+   d) one choice in the same breath: web chats `night` (default, the reserve) or `morning`
+   (`team.py web-when`, `/nightcall:team` §1c).
 
 1. **The task in one sentence and the finish line.** Repeat the task back in one sentence and say
    what "done by morning" means — a thing that can be checked (a file exists, tests pass, a document
@@ -33,16 +35,20 @@ setting. Everything that needs them happens in the next five minutes, before the
 
 2. **How long.** 8 or 12 hours, or their own number. Default 8. Say until what time: `date`.
 
-3. **The folder.** A task folder named `ночь-<date>-<short-name>` next to where the work is (or
-   the folder the person named). Open the night:
+3. **The folder.** The folder where the work is (the one the person named, or the project folder);
+   a new task with no folder yet gets `ночь-<date>-<short-name>`. Open the night:
 
    ```
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/night.py" begin --dir "<folder>" --hours <H>
    ```
    with the person's task **word for word** on standard input — it becomes `TASK.md`, next to an
-   empty `PLAN.md` and `PROGRESS.md`. Write the plan now (§1), while the person can still glance at it.
-   If the work is code and the folder is not under git, run `git init` there and commit the start —
-   one commit per step lets the person undo any step in the morning.
+   empty `PLAN.md` and `PROGRESS.md`. `begin` **always** puts the night on a safety net, for any task,
+   with no question to the person: a restore point (not under git → `git init` + a commit «перед
+   ночью»; under git → a commit of what is not committed + a tag `nightcall-before-<time>`) and the
+   fence rule of step 13A in the folder's `CLAUDE.md` — work only inside this folder. Say the restore
+   point in one line. From here on, all work happens inside this folder; anything needed from
+   outside is copied in. Write the plan now (§1), while the person can still glance at it.
+   One commit per step lets the person undo any step in the morning.
 
 4. **The checklist.** Run `/nightcall:ready` (or `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ready.py" --dir "<folder>"`).
    Every НЕ is fixed **now**, with the person, while they are still here. Show СЛЕДИТЕ lines
@@ -70,9 +76,10 @@ setting. Everything that needs them happens in the next five minutes, before the
    how to stop everything early (a file named `STOP` in the folder). Then arm the night — from here
    on a finished turn goes straight back to the next step (§4):
    ```
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/night.py" arm --dir "<folder>" --hours <H>
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/night.py" arm --dir "<folder>" --hours <H> --session "${CLAUDE_SESSION_ID}"
    ```
-   and start working — do not wait for a reply. (With the loop script instead, do not arm: the loop
+   (`--session` binds the night to this window only: another Claude Code window open tonight is
+   never kept working.) and start working — do not wait for a reply. (With the loop script instead, do not arm: the loop
    itself starts a fresh Claude for every step.)
 
 ## 1. The plan — before the first step
@@ -109,7 +116,7 @@ what you tried, and move on to the next step. One stuck step must not eat the ni
 do it, and put it in «Проверить утром» in `PROGRESS.md` with the value you chose. Never stop and
 wait for an answer.
 
-**Nothing is deleted at night** that cannot be brought back: move to a `_убрано/` folder instead,
+**Only inside the task folder** (the fence in its `CLAUDE.md`). **Nothing is deleted at night** that cannot be brought back: move to a `_убрано/` folder instead,
 or rely on the git commit.
 
 ## 3. Other AIs — helpers, not a decoration
@@ -119,7 +126,8 @@ the text or code, facts you are not sure of. Not on every sentence.
 
 **The order of replacement is fixed**: a live program by subscription → at a limit or failure the
 next program of another company → free keys (if set up, course step 12A) → a web chat that passed
-the roll call → Claude's own critics (a fresh sub-agent), said out loud.
+the roll call (with `web: night`, the default; with `web: morning` the question waits in
+`утро-совет.md`) → Claude's own critics (a fresh sub-agent), said out loud.
 
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" ask --seats "<folder>/seats.json" --progress "<folder>/PROGRESS.md" --dir "<folder>" -

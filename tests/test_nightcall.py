@@ -297,10 +297,10 @@ def test_begin_always_makes_restore_point_and_fence():
     assert run(["git", "-C", folder, "status", "--porcelain"]).stdout.strip() == ""
     # ready shows the restore point
     r = run([sys.executable, os.path.join(S, "ready.py"), "--dir", folder], env)
-    assert "Точка возврата: есть" in r.stdout and "Забор (13A): есть" in r.stdout, r.stdout
+    assert "Точка возврата: есть" in r.stdout and "Забор: есть" in r.stdout, r.stdout
     fresh = tempfile.mkdtemp()
     r = run([sys.executable, os.path.join(S, "ready.py"), "--dir", fresh], env)
-    assert "Точка возврата: будет создана" in r.stdout and "Забор (13A): будет вписан" in r.stdout, r.stdout
+    assert "Точка возврата: будет создана" in r.stdout and "Забор: будет вписан" in r.stdout, r.stdout
 
 
 def test_hook_bound_to_the_session_that_armed_the_night():

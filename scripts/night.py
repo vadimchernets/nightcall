@@ -11,7 +11,7 @@
 PROGRESS.md skeleton if they are not there yet, and ALWAYS puts the night on a safety net, without
 asking: a restore point (no git -> `git init` + a commit «перед ночью»; git -> a commit of what is
 not committed + a tag `nightcall-before-<time>`) and the fence rule in the folder's CLAUDE.md:
-work only inside this folder (course step 13A). `arm` - said when the person has left - writes
+work only inside this folder (course step "Fence and time machine"). `arm` - said when the person has left - writes
 ~/.nightcall/active.json, the switch the Stop hook reads to keep the session working until the end
 time, bound to the session that started the night (`--session`, the hook's session_id), so another
 Claude Code window open the same evening is never caught. They are separate on purpose: while the
@@ -57,7 +57,7 @@ PROGRESS = """# Ход ночи
 FENCE_MARK = "<!-- nightcall:fence -->"
 FENCE = """
 {mark}
-## Ночь nightcall: забор (шаг 13A)
+## Ночь nightcall: забор (шаг курса «Забор и машина времени»)
 
 - Работай ТОЛЬКО внутри этой папки: `{folder}`. Ничего не создавай, не меняй и не удаляй за её
   пределами (домашняя папка, рабочий стол, системные файлы, другие проекты).

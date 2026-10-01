@@ -158,7 +158,7 @@ def check_team(folder):
 
 
 def check_folder(folder):
-    """The safety net of the night: a restore point and the fence (step 13A). Never a refusal:
+    """The safety net of the night: a restore point and the fence (course step "Fence and time machine"). Never a refusal:
     whatever is missing, `night.py begin` makes it by itself."""
     if not folder:
         return
@@ -174,7 +174,7 @@ def check_folder(folder):
         fenced = "nightcall:fence" in open(claude_md, encoding="utf-8").read()
     except OSError:
         fenced = False
-    row("ОК", "Забор (13A): " + ("есть — в CLAUDE.md папки «работать только в этой папке»." if fenced else
+    row("ОК", "Забор: " + ("есть — в CLAUDE.md папки «работать только в этой папке»." if fenced else
                                 "будет вписан в CLAUDE.md папки при night.py begin."))
 
 

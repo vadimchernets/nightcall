@@ -397,3 +397,46 @@ def test_decide_when_council_default_decide_and_hold():
     assert "всё на утро" in team(["summary", "--seats", seats], env).stdout
     team(["hold", "--dir", d, "--question", "Публиковать ли?", "--waits", "шаг 7"], env)
     assert "ждёт Вашего ответа: Публиковать ли?" in open(os.path.join(d, "решения.md"), encoding="utf-8").read()
+
+
+def test_free_key_tries_next_model_and_nvidia_goes_first():
+    if platform.system() == "Windows":
+        return
+    import http.server
+    import threading
+    asked = []
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            model = json.loads(self.rfile.read(int(self.headers["Content-Length"])))["model"]
+            asked.append(model)
+            if model == "moonshotai/kimi-k3":
+                self.send_response(429)
+                self.end_headers()
+                self.wfile.write(b'{"error": "too many requests"}')
+                return
+            body = json.dumps({"choices": [{"message": {"content": "ок"}}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    bindir, home, d = tempfile.mkdtemp(), tempfile.mkdtemp(), tempfile.mkdtemp()
+    url = "http://127.0.0.1:%d/v1/chat/completions" % srv.server_port
+    with open(os.path.join(home, "free-keys.env"), "w") as fh:
+        fh.write("GROQ_API_KEY=g-test\nNVIDIA_API_KEY=n-test\n")
+    env = {"NIGHTCALL_PATH": bindir, "NIGHTCALL_HOME": home,
+           "NIGHTCALL_KEY_URL_GROQ": url, "NIGHTCALL_KEY_URL_NVIDIA": url}
+    seats = os.path.join(d, "seats.json")
+    r = team(["rollcall", "--out", seats], env)
+    assert "z-ai/glm-5.3" in r.stdout, r.stdout + r.stderr
+    assert asked[:2] == ["moonshotai/kimi-k3", "z-ai/glm-5.3"], asked
+    keys = [k["ключ"] for k in json.load(open(seats, encoding="utf-8"))["ключи"]]
+    assert keys == ["nvidia", "groq"], keys
+    assert all(k["статус"] == "жив" for k in json.load(open(seats, encoding="utf-8"))["ключи"])
+    assert "n-test" not in open(seats, encoding="utf-8").read()

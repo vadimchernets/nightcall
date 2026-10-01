@@ -5,8 +5,9 @@
 Claude is the main agent for the night. Its helpers are AIs of OTHER companies, in this order:
 
   1. programs by subscription already on this computer (codex, agy/gemini, grok, kimi, qwen);
-  2. free keys, only if the person set them up earlier (the course's free-keys evenings): OpenRouter free models,
-     Groq, Google AI Studio - read from the environment or ~/.nightcall/free-keys.env;
+  2. free keys, only if the person set them up earlier (the course lesson «Бесплатные ключи ИИ»): NVIDIA
+     (Kimi K3, GLM-5.3), Google AI Studio, Groq, OpenRouter free models - read from the environment or
+     ~/.nightcall/free-keys.env; several models per key, the next one on 429/503/404/timeout;
   3. web chats in the person's own Chrome - only the sites that passed the roll call (web-mark),
      and only if the person chose `web: night` (default); with `web: morning` the question that
      would have gone to a web chat is saved in <folder>/утро-совет.md for the morning;
@@ -59,17 +60,44 @@ HELPERS = [
 # Claude itself is checked in the roll call too (the night stands on it), but never asked as a helper.
 MAIN = ("anthropic", "claude", lambda p: ["-p", p], "Claude (главный)")
 
-# Free keys (the course's free-keys evenings). Only used when the person already put the key in the environment or
-# in ~/.nightcall/free-keys.env. OpenAI-compatible chat endpoints, free models only.
+# Free keys (the course lesson «Бесплатные ключи ИИ»). Only used when the person already put the key in the
+# environment or in ~/.nightcall/free-keys.env. OpenAI-compatible chat endpoints, free models only.
+# Models and order as in Poly A1 src/duoAuto.ts (checked live 01.10.2026): the strongest free one first -
+# NVIDIA (one build.nvidia.com key `nvapi-...`: Kimi K3 by Moonshot, then GLM-5.3 by Zhipu; ~40 requests a
+# minute, may hang - so 30 s per model in the roll call), then Google AI Studio (Gemini Pro is no longer
+# free - only Flash), Groq (Llama is not free since 16.08.2026 - 404; Qwen 3.8 and gpt-oss), OpenRouter :free
+# (no free DeepSeek there any more; `openrouter/free` - any free model, the last hope).
+# Within one key: 429/503/404/timeout -> the next model; 401/403 (key not accepted) -> the whole key is out.
+# (name, env var, url, [models], label, seconds per model in the roll call or None)
 FREE_KEYS = [
-    ("openrouter", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1/chat/completions",
-     "deepseek/deepseek-chat-v3-0324:free", "OpenRouter (бесплатная модель)"),
-    ("groq", "GROQ_API_KEY", "https://api.groq.com/openai/v1/chat/completions",
-     "llama-3.3-70b-versatile", "Groq"),
+    ("nvidia", "NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1/chat/completions",
+     ["moonshotai/kimi-k3", "z-ai/glm-5.3"], "NVIDIA (Kimi K3, GLM-5.3)", 30),
     ("google-ai-studio", "GEMINI_API_KEY",
      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-     "gemini-2.5-flash", "Gemini (AI Studio)"),
+     ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-2.5-flash"], "Gemini (AI Studio)", None),
+    ("groq", "GROQ_API_KEY", "https://api.groq.com/openai/v1/chat/completions",
+     ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"], "Groq (Qwen 3.8, gpt-oss)", None),
+    ("openrouter", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1/chat/completions",
+     ["qwen/qwen3.8-27b:free", "nvidia/nemotron-3-super-120b-a12b:free", "openrouter/free"],
+     "OpenRouter (бесплатные модели)", None),
 ]
+# HTTP codes after which the same key tries its next model (an empty answer - too).
+NEXT_MODEL = (404, 408, 429, 500, 502, 503, 504)
+# Answer ceilings as in duoAuto.ts: NVIDIA cuts short by default and Kimi/GLM reason first - 4096;
+# Groq without a ceiling counts the whole window and answers 413 on the free per-minute token limit.
+MAX_TOKENS = {"nvidia": 4096, "groq": 1500}
+
+
+def clean(text):
+    """Reasoning aloud (`<think>`, also cut off), model service tokens (Kimi K3 on NVIDIA ends with
+    `<|close|>message`), and «User Safety: safe» from openrouter/free's filter model - not an answer."""
+    out = re.sub(r"<think>[\s\S]*?</think>", "", text)
+    out = re.sub(r"<think>[\s\S]*$", "", out)
+    out = re.sub(r"(?:<\|[^|>\n]{1,40}\|>[A-Za-z_]{0,20}\s*)+$", "", out)
+    out = re.sub(r"<\|[^|>\n]{1,40}\|>", "", out).strip()
+    if len(out) < 200 and re.match(r"^(user |agent |response )?safety\s*:\s*(safe|unsafe)\b", out, re.I):
+        return ""
+    return out
 
 # Web chats in the person's Chrome: the reserve. Checked in the roll call, one site at a time.
 WEB_SITES = [
@@ -205,7 +233,7 @@ def run(helper, prompt, timeout, cwd=None):
     return r
 
 
-# ---------- free keys (the course's free-keys evenings) ----------
+# ---------- free keys (the course lesson «Бесплатные ключи ИИ») ----------
 
 def keys_file():
     home = os.environ.get("NIGHTCALL_HOME", os.path.expanduser("~/.nightcall"))
@@ -222,31 +250,57 @@ def configured_keys():
                 k, v = line.split("=", 1)
                 found[k.strip()] = v.strip().strip('"').strip("'")
     out = []
-    for name, var, url, model, label in FREE_KEYS:
+    for name, var, url, models, label, wait in FREE_KEYS:
         key = os.environ.get(var) or found.get(var)
         if key:
             url = os.environ.get("NIGHTCALL_KEY_URL_" + name.upper().replace("-", "_"), url)
-            out.append({"ключ": name, "имя": label, "адрес": url, "модель": model, "_key": key})
+            out.append({"ключ": name, "имя": label, "адрес": url, "модели": models, "ждать": wait,
+                        "_key": key})
     return out
 
 
-def run_key(k, prompt, timeout):
-    t0 = time.time()
-    body = json.dumps({"model": k["модель"], "messages": [{"role": "user", "content": prompt}]}).encode()
+def run_key_model(k, model, prompt, timeout):
+    """One model of one key. Returns (result, http code or 0 for a timeout / network error)."""
+    msg = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2}
+    if k["ключ"] in MAX_TOKENS:
+        msg["max_tokens"] = MAX_TOKENS[k["ключ"]]
+    if k["ключ"] == "groq" and model.startswith("qwen/"):
+        msg["reasoning_format"] = "hidden"
+    body = json.dumps(msg).encode()
     req = urllib.request.Request(k["адрес"], data=body, headers={
         "Content-Type": "application/json", "Authorization": "Bearer " + k["_key"]})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8", "replace"))
-        text = (data["choices"][0]["message"]["content"] or "").strip()
+        text = clean(data["choices"][0]["message"].get("content") or "")
         r = classify(True, text, "")
+        return r, (0 if not text else 200)  # empty -> the next model
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:500]
         r = classify(False, "", f"{e.code} {detail}")
         if e.code in (401, 403) and r["статус"] == "сбой":
             r = {"ok": False, "статус": "не вошли", "почему": "ключ не принят — проверьте его сейчас"}
+        return r, e.code
     except Exception as e:  # noqa - network, timeout, bad JSON: all the same for the night
-        r = {"ok": False, "статус": "сбой", "почему": str(e)[:300]}
+        return {"ok": False, "статус": "сбой", "почему": str(e)[:300]}, 0
+
+
+def run_key(k, prompt, timeout, probe=False):
+    """Every model of the key in turn: 429/503/404/timeout -> the next one; key not accepted -> stop."""
+    t0 = time.time()
+    wait = min(timeout, k["ждать"]) if probe and k.get("ждать") else timeout
+    tried = []
+    r = {"ok": False, "статус": "сбой", "почему": "нет моделей"}
+    for model in k["модели"]:
+        r, code = run_key_model(k, model, prompt, wait)
+        if r["ok"]:
+            r["модель"] = model
+            break
+        tried.append(f"{model}: {r['почему'][:120]}")
+        if code not in NEXT_MODEL and code != 0:
+            break
+    if not r["ok"] and len(tried) > 1:
+        r["почему"] = "; ".join(tried)[:600]
     r["секунд"] = round(time.time() - t0)
     return r
 
@@ -368,14 +422,14 @@ def cmd_rollcall(args):
         detail = f"ответил за {r.get('секунд')} с" if r["ok"] else r.get("почему", "")
         rows.append((h["имя"], r["статус"], detail))
     for k in configured_keys():
-        r = run_key(k, PROBE_TEXT, PROBE_TIMEOUT)
+        r = run_key(k, PROBE_TEXT, PROBE_TIMEOUT, probe=True)
         row = {"ключ": k["ключ"], "имя": k["имя"], "статус": r["статус"],
                "почему": r.get("почему", ""), "проверено": hhmm()}
         if r.get("до"):
             row["до"] = r["до"]
         keys.append(row)
         rows.append((f"{k['имя']} (ключ)", r["статус"],
-                     f"ответил за {r.get('секунд')} с" if r["ok"] else r.get("почему", "")))
+                     f"ответил за {r.get('секунд')} с ({r['модель']})" if r["ok"] else r.get("почему", "")))
     print("Перекличка — программы по подписке и бесплатные ключи:")
     table(rows)
     seats = {"проверено": now().strftime("%Y-%m-%d %H:%M"), "помощники": cli, "ключи": keys,

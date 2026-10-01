@@ -60,8 +60,9 @@ Claude is the main agent. Helpers are AIs of **other companies** you already hav
 **The roll call — before you leave** (`/nightcall:ready`, and the first step of `/nightcall:start`):
 
 1. every program by subscription — `codex` (ChatGPT), `agy`/`gemini`, `grok`, `kimi`, `qwen` — and
-   every free key you set up (the course's free-keys evenings: OpenRouter, Groq, Google AI Studio) gets a test
-   question: **жив / лимит (до ЧЧ:ММ) / не вошли / нет программы**;
+   every free key you set up (the course lesson «Бесплатные ключи ИИ»: NVIDIA — Kimi K3 and GLM-5.3 on one key,
+   Google AI Studio, Groq, OpenRouter) gets a test question — several models per key, the next one on
+   429/503/404/timeout: **жив / лимит (до ЧЧ:ММ) / не вошли / нет программы**;
 2. Chrome: Claude in Chrome connected, a tab opens, and each web chat you use (ChatGPT, Gemini,
    Kimi, DeepSeek, Meta AI…) shows an input field and answers a test question — or is marked
    «нужен вход» / «капча». Anything to allow or sign in, you do now, not at night;

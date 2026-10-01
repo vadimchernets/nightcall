@@ -1,6 +1,6 @@
 ---
 name: team
-description: The roll call of helper AIs before the night, and their replacement during it. While the person is still here - every AI program of another company already installed by subscription (Codex/ChatGPT, Gemini/agy, Grok, Kimi, Qwen) and every free key gets a test question; then Chrome is checked (Claude in Chrome connected, a tab opens, the person is signed in to ChatGPT, Gemini, Kimi, DeepSeek, Meta AI...), and the person is asked to press "Allow" now, not at night. At night - CLI, then the next CLI, then free keys, then only the web chats that passed the roll call, then Claude's own critics; every replacement is a line in PROGRESS.md. Use when the person says "кто из ИИ живой", "перекличка", "подключи другие ИИ", "проверь помощников", "проверь браузер", "other AIs", or during a night run every few hours.
+description: The roll call of helper AIs before the night, and their replacement during it. While the person is still here - every AI program of another company already installed by subscription (Codex/ChatGPT, Gemini/agy, Grok, Kimi, Qwen) and every free key (NVIDIA first, then Google AI Studio, Groq, OpenRouter) gets a test question; then Chrome is checked (Claude in Chrome connected, a tab opens, the person is signed in to ChatGPT, Gemini, Kimi, DeepSeek, Meta AI...), and the person is asked to press "Allow" now, not at night. At night - CLI, then the next CLI, then free keys, then only the web chats that passed the roll call, then Claude's own critics; every replacement is a line in PROGRESS.md. Use when the person says "кто из ИИ живой", "перекличка", "подключи другие ИИ", "проверь помощников", "проверь браузер", "other AIs", or during a night run every few hours.
 argument-hint: "[folder of the night run]"
 allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(open *) Bash(osascript *) Bash(date*) Read Write ToolSearch
 ---
@@ -25,8 +25,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" rollcall --out "<seats>"
 ```
 
 Every program found (claude, codex, agy/gemini, grok, kimi, qwen) and every free key the person set
-up earlier (the course's free-keys evenings: `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY` in the
-environment or `~/.nightcall/free-keys.env`) gets «Проверка связи. Ответь одним словом: ок», 90
+up earlier (the course lesson «Бесплатные ключи ИИ»: `NVIDIA_API_KEY` first — Kimi K3, then GLM-5.3, 30 s
+each — then `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, in the environment or
+`~/.nightcall/free-keys.env`; within a key the next model is tried on 429/503/404/timeout) gets «Проверка связи. Ответь одним словом: ок», 90
 seconds each. Show the table as printed: **жив / лимит (до ЧЧ:ММ, если видно) / не вошли / сбой /
 молчит / нет программы**. How to say it, with what fixes it:
 - **лимит** — the subscription allowance ran out; nothing to pay, it comes back by itself. With a

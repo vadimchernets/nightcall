@@ -44,8 +44,19 @@ else
   web_rule="Если программы и ключи не ответили, а в ответе team.py ask «дальше» — веб-чат, прошедший перекличку, — задай вопрос ему по скиллу nightcall:team §3 (по одному сайту, без паролей); нет его — свои критики Claude."
 fi
 
+# decisions that are normally the person's: "council" (default) or "morning" — the same file
+decide=$(python3 -c 'import json,sys
+try: print("morning" if json.load(open(sys.argv[1], encoding="utf-8")).get("решения_когда") == "morning" else "council")
+except Exception: print("council")' "$folder/seats.json")
+never="Отправку, публикацию, оплату, удаление без возврата и вход с паролем не решай никогда — это всегда вопрос на утро (team.py hold)."
+if [ "$decide" = morning ]; then
+  decide_rule="Развилку, которую обычно решает человек, НЕ решай (человек выбрал «всё на утро»): python3 \"$here/team.py\" hold --dir \"$folder\" --question \"<вопрос>\" --waits \"<что стоит>\" --alt \"<варианты>\", пометь шаг «ждёт ответа» и бери следующий шаг или другую часть. $never"
+else
+  decide_rule="Развилку, которую обычно решает человек, решай с советом ИИ (team.py ask — другие компании, затем свои критики), не останавливаясь: сделай её ОТДЕЛЬНЫМ коммитом и запиши: python3 \"$here/team.py\" decide --dir \"$folder\" --what \"<что решили>\" --why \"<почему>\" --who \"<кто советовал>\" --alt \"<другие варианты>\" --commit <хэш>. $never"
+fi
+
 bash "$here/awake.sh" "$hours" | tee -a "$log"
-echo "$(date '+%F %T') ночной цикл: до $(date -r "$end" '+%H:%M' 2>/dev/null || date -d "@$end" '+%H:%M'), режим $mode, веб-чаты: $web" | tee -a "$log"
+echo "$(date '+%F %T') ночной цикл: до $(date -r "$end" '+%H:%M' 2>/dev/null || date -d "@$end" '+%H:%M'), режим $mode, веб-чаты: $web, развилки: $decide" | tee -a "$log"
 
 prompt="Ты работаешь ночью по плагину nightcall, человек спит — ничего у него не спрашивай.
 Папка задачи: $folder
@@ -55,6 +66,7 @@ prompt="Ты работаешь ночью по плагину nightcall, чел
    помощника: python3 \"$here/team.py\" ask --seats \"$folder/seats.json\" --dir \"$folder\" - (вопрос на вход).
    $web_rule
    Исправь найденное один раз.
+   $decide_rule
 4. Допиши в PROGRESS.md: время (date), шаг, что сделано, как проверено, что осталось, спорные решения
    в раздел «Проверить утром». Если папка под git — один коммит на шаг.
 5. Если все шаги сделаны — напиши MORNING.md по скиллу nightcall:morning.
@@ -83,6 +95,6 @@ while :; do
 done
 
 if [ ! -f "$folder/MORNING.md" ]; then
-  (cd "$folder" && claude -p "Ночь по плагину nightcall закончилась. Папка: $folder. Напиши MORNING.md по шаблону скилла nightcall:morning, в этом порядке: «Нужно Ваше решение» (решения, принятые по умолчанию, и вопросы; плюс утро-совет.md, если он есть) / «Сделано» / «Не сделано» / «Проверить» / «Кто участвовал» — строго по PROGRESS.md и git log, ничего не придумывая." --permission-mode "$mode" ${NIGHTCALL_MODEL:+--model "$NIGHTCALL_MODEL"} >> "$log" 2>&1)
+  (cd "$folder" && claude -p "Ночь по плагину nightcall закончилась. Папка: $folder. Напиши MORNING.md по шаблону скилла nightcall:morning, в этом порядке: «Нужно Ваше решение» (из решения.md: решения совета ИИ с командой отмены каждого и вопросы, ждущие ответа; плюс утро-совет.md, если он есть) / «Сделано» / «Не сделано» / «Проверить» / «Кто участвовал» — строго по PROGRESS.md и git log, ничего не придумывая." --permission-mode "$mode" ${NIGHTCALL_MODEL:+--model "$NIGHTCALL_MODEL"} >> "$log" 2>&1)
 fi
 echo "$(date '+%F %T') цикл завершён. Отчёт: $folder/MORNING.md" | tee -a "$log"

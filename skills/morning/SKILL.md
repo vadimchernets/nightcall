@@ -14,7 +14,7 @@ Answer in the person's language. Find the night folder: the argument, or `python
 
 ## 1. Read, do not remember
 
-Read `TASK.md`, `PLAN.md`, `PROGRESS.md`, `утро-совет.md` if it is there, and `git log --oneline` if the folder is under git.
+Read `TASK.md`, `PLAN.md`, `PROGRESS.md`, `решения.md` and `утро-совет.md` if they are there, and `git log --oneline` if the folder is under git.
 Who of the helpers really answered: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" used --seats
 "<folder>/seats.json"` (program, key or web chat, and how many answers).
 The report is built **only** from these. A step with no line in `PROGRESS.md` saying how it was
@@ -29,8 +29,9 @@ The order is fixed: what needs the person comes **first**.
 Ночь: <start> – <end>. Шагов в плане: N. Сделано: X. Не сделано: Y.
 
 ## Нужно Ваше решение
-- <decision taken by default at night> — выбрано: <value> — поменять: <how> (from «Проверить утром» in PROGRESS.md)
-- <a question only the person can answer> — без ответа дальше: <what waits>
+- Решил совет ИИ: <what> — почему: <why> — советовали: <who> — отменить: `git revert <hash>` — или исправить так: «…» (each entry of решения.md, mode `council`)
+- Ждёт Вашего ответа: <question> — варианты: <…> — без ответа стоит: <what waits> (each `hold` entry; mode `morning` and the never-at-night list)
+- <a default taken at night outside решения.md> — выбрано: <value> — поменять: <how> (from «Проверить утром» in PROGRESS.md)
 - Вопросы для веб-чатов, отложенные на утро: `утро-совет.md` (<how many>) — only if the file exists
 
 ## Сделано
@@ -50,6 +51,9 @@ The order is fixed: what needs the person comes **first**.
 ```
 
 «Нужно Ваше решение» is never left out: nothing to decide → one line «решений без вас не было».
+Questions waiting for an answer → end the section with one line to finish the work:
+`/nightcall:start продолжение: <task>; ответы: 1) … 2) …` — the person fills in the answers and the
+next run (day or night) finishes the paused steps.
 «Проверить» is the most useful part after it: at most five items, the riskiest first, each one
 something the person can open and look at.
 
@@ -63,5 +67,5 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/awake.sh" stop
 
 ## 4. Tell the person
 
-Three lines, not the whole file: how many steps done out of how many, the first thing to check,
-and the path to `MORNING.md`. No "everything went great" that the file does not show.
+Three lines, not the whole file: how many steps done out of how many, how many decisions the
+council took (each can be undone) or how many questions wait for them, and the path to `MORNING.md`. No "everything went great" that the file does not show.

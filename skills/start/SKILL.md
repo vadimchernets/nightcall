@@ -26,6 +26,12 @@ setting. Everything that needs them happens in the next five minutes, before the
    say honestly the night will run with Claude's own critics only, and offer one fix before they go.
    d) one choice in the same breath: web chats `night` (default, the reserve) or `morning`
    (`team.py web-when`, `/nightcall:team` §1c).
+   e) and one more, with its default said out loud: «Развилки, которые обычно оставляют Вам, —
+   решает совет ИИ (по умолчанию: ночь не встаёт, утром список с отменой каждого решения) или всё
+   на утро (задача с вопросом ждёт Вас, ночь идёт по другим частям)?» Save it:
+   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" decide-when --seats "<folder>/seats.json" council|morning`.
+   Silence means `council`. In both modes send, publish, pay, delete-for-good and sign in with a
+   password are never decided at night — they always wait for the morning.
 
 1. **The task in one sentence and the finish line.** Repeat the task back in one sentence and say
    what "done by morning" means — a thing that can be checked (a file exists, tests pass, a document
@@ -112,9 +118,18 @@ For a large plan, show it to one live helper (§3) with the question «Чего 
 **Stuck rule.** Three honest attempts at a step without success → mark it «не вышло: <why>», write
 what you tried, and move on to the next step. One stuck step must not eat the night.
 
-**Nobody to ask.** A decision that would normally be the person's: take the reasonable default,
-do it, and put it in «Проверить утром» in `PROGRESS.md` with the value you chose. Never stop and
-wait for an answer.
+**Nobody to ask — a decision that would normally be the person's.** The person chose before
+leaving (§0e, `решения_когда` in `seats.json`). Never stop the night and wait for an answer.
+
+- `council` (default) — ask the council (§3: other companies first, then Claude's own critics; the
+  question as a question, with the options), decide, and make the decision **its own commit** — a
+  restore point for that one decision. Then write it down:
+  `team.py decide --dir "<folder>" --what "…" --why "…" --who "codex, grok, свои критики" --alt "…" --commit <hash>`
+  → `решения.md`, with `git revert <hash>` ready for the morning.
+- `morning` — do not decide: `team.py hold --dir "<folder>" --question "…" --waits "…" --alt "…"`,
+  mark that step «ждёт ответа» in `PLAN.md` and go on with the other steps or another part.
+- Never decided by the council, in either mode: sending, publishing, paying, deleting with no way
+  back, signing in with a password — always `hold`.
 
 **Only inside the task folder** (the fence in its `CLAUDE.md`). **Nothing is deleted at night** that cannot be brought back: move to a `_убрано/` folder instead,
 or rely on the git commit.

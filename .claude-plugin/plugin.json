@@ -1,7 +1,7 @@
 {
   "name": "nightcall",
   "description": "Leave Claude Code working through the night on your task and find a report in the morning. Keeps the computer awake for 8 or 12 hours on Mac, Linux or Windows (no administrator rights, switches itself off), writes a plan and a progress file, works step by step with self-critique, brings in other AIs of other companies - the programs you already have by subscription first, each checked that it is alive and replaced when it is not, then free keys if you set them up, then only the web chats in your Chrome that passed a roll call before the night - and ends with a morning report: done, not done, what to check. No keys, no paid API, nothing bought.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "author": {
     "name": "Vadym Chernets"
   },

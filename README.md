@@ -74,6 +74,19 @@ who really took part. Your one choice at the roll call: `web: night` (default �
 night reserve) or `web: morning` (`team.py web-when --seats seats.json morning`) — then a question
 meant for a web chat is saved in `утро-совет.md` for the morning.
 
+**Decisions that are usually yours** — one more choice before you leave, default «решает совет ИИ»:
+
+- `council` (default) — Claude asks the live AIs (other companies, then its own critics), decides,
+  and the night does not stop. Each such decision is its own commit and an entry in `решения.md`
+  (what, why, who advised, the other options); in the morning «Нужно Ваше решение» lists them, each
+  with its own `git revert <commit>` and «исправить так: …».
+- `morning` — such a fork is not decided: the step waits with a question, the night goes on with
+  other steps; in the morning you answer, and `/nightcall:morning` gives one line to finish:
+  `/nightcall:start продолжение: …; ответы: …`.
+
+Never decided at night, in either mode: sending, publishing, paying, deleting with no way back,
+signing in with a password.
+
 **Every night has a safety net, made by itself:** `night.py begin` makes a restore point in the task
 folder (no git → `git init` + a commit «перед ночью»; git → a commit + a tag `nightcall-before-<time>`)
 and writes the fence rule into the folder's `CLAUDE.md`: work only inside this folder. The night is
@@ -84,6 +97,7 @@ The morning report starts with **«Нужно Ваше решение»**, then 
 python3 scripts/team.py rollcall --out seats.json
 python3 scripts/team.py web-mark --seats seats.json --site chatgpt --status жив
 python3 scripts/team.py web-when --seats seats.json night      # or morning
+python3 scripts/team.py decide-when --seats seats.json council   # or morning
 python3 scripts/team.py summary --seats seats.json
 echo "Чего не хватает в этом плане?" | python3 scripts/team.py ask --seats seats.json --progress PROGRESS.md -
 ```
@@ -105,7 +119,7 @@ Stops by itself at the end time, on `MORNING.md`, on a file named `STOP` in the 
 
 - Files carry the night, not memory: `TASK.md`, `PLAN.md`, `PROGRESS.md`, `MORNING.md`.
 - "Done" is a check, not a feeling. Three failed attempts → the step is marked and skipped.
-- A decision that needed you is taken with a sensible default and listed under «Проверить утром».
+- A decision that needed you: by the council of AIs (its own commit, undo in the morning) or left for your morning answer — your choice before the night.
 - No keys, no paid API, nothing bought, no passwords in files.
 
 ## License

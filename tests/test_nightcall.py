@@ -377,3 +377,23 @@ if __name__ == "__main__":
                 fails += 1
                 print("FAIL", name, e)
     sys.exit(1 if fails else 0)
+
+
+def test_decide_when_council_default_decide_and_hold():
+    bindir, home, d = tempfile.mkdtemp(), tempfile.mkdtemp(), tempfile.mkdtemp()
+    env = {"NIGHTCALL_PATH": bindir, "NIGHTCALL_HOME": home}
+    seats = os.path.join(d, "seats.json")
+    team(["rollcall", "--out", seats], env)
+    assert json.load(open(seats, encoding="utf-8"))["решения_когда"] == "council"   # default
+    assert "решает совет ИИ" in team(["summary", "--seats", seats], env).stdout
+    out = json.loads(team(["decide", "--dir", d, "--what", "формат таблицы — CSV", "--why", "проще открыть",
+                           "--who", "codex, свои критики", "--alt", "xlsx", "--commit", "abc1234"], env).stdout)
+    assert out["отменить"] == "git revert abc1234"
+    text = open(out["решения"], encoding="utf-8").read()
+    assert "формат таблицы — CSV" in text and "git revert abc1234" in text and "Исправить так" in text
+    team(["decide-when", "--seats", seats, "morning"], env)
+    team(["rollcall", "--out", seats], env)                 # the choice survives the next roll call
+    assert json.load(open(seats, encoding="utf-8"))["решения_когда"] == "morning"
+    assert "всё на утро" in team(["summary", "--seats", seats], env).stdout
+    team(["hold", "--dir", d, "--question", "Публиковать ли?", "--waits", "шаг 7"], env)
+    assert "ждёт Вашего ответа: Публиковать ли?" in open(os.path.join(d, "решения.md"), encoding="utf-8").read()

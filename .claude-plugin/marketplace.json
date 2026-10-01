@@ -3,14 +3,14 @@
   "owner": { "name": "Vadym Chernets" },
   "metadata": {
     "description": "Nightcall: Claude Code works through the night on your task - the computer kept awake, other AIs brought in and replaced when they die, a morning report of what was done.",
-    "version": "0.2.1"
+    "version": "0.3.0"
   },
   "plugins": [
     {
       "name": "nightcall",
       "source": "./",
       "description": "Claude Code as the main agent for the night: coffee for Mac/Linux/Windows for 8 or 12 hours, plan and progress file, self-critique, helper AIs from your own subscriptions or free web chats, a morning report.",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "author": { "name": "Vadym Chernets" },
       "license": "Apache-2.0",
       "keywords": ["overnight", "autonomous", "keep-awake", "multi-ai"],

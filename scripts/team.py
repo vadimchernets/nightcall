@@ -18,6 +18,9 @@ Claude is the main agent for the night. Its helpers are AIs of OTHER companies, 
     python3 team.py web-sites                         # the web chats to check in Chrome
     python3 team.py web-mark --seats S --site chatgpt --status жив|нужен вход|капча|не открылся
     python3 team.py web-when --seats S night|morning  # the person's choice: web chats at night (default) or questions saved for the morning
+    python3 team.py decide-when --seats S council|morning  # развилки человека: решает совет ИИ (по умолчанию) или всё на утро
+    python3 team.py decide --dir D --what … --why … --who … [--alt …] [--commit SHA]  # решение совета -> решения.md
+    python3 team.py hold --dir D --question … [--waits …]   # «всё на утро»: вопрос -> решения.md, задача на паузе
     python3 team.py summary --seats seats.json        # «Ночью работают / запас / не работает / что сделать»
     python3 team.py ask [--who codex] [--seats S] [--progress PROGRESS.md] -   # question on stdin
     python3 team.py next --seats seats.json           # the route for the next question, no call made
@@ -282,6 +285,10 @@ def web_when(seats):
     return "morning" if (seats or {}).get("веб_когда") == "morning" else "night"
 
 
+def decide_when(seats):
+    return "morning" if (seats or {}).get("решения_когда") == "morning" else "council"
+
+
 def route(seats, found=None, keys=None):
     """The order of replacement for the next question: CLI -> free key -> web -> Claude critics."""
     seats = seats or {}
@@ -373,7 +380,8 @@ def cmd_rollcall(args):
     table(rows)
     seats = {"проверено": now().strftime("%Y-%m-%d %H:%M"), "помощники": cli, "ключи": keys,
              "веб": old.get("веб", []), "браузер": old.get("браузер", {}),
-             "участвовали": old.get("участвовали", {}), "веб_когда": web_when(old)}
+             "участвовали": old.get("участвовали", {}), "веб_когда": web_when(old),
+             "решения_когда": decide_when(old)}
     if args.out:
         save_seats(args.out, seats)
         print(f"Записал в {args.out}. Дальше — браузер (скилл team, «Перекличка браузера»), "
@@ -431,6 +439,51 @@ def cmd_web_when(args):
     return 0
 
 
+def cmd_decide_when(args):
+    seats = load_seats(args.seats) or {"помощники": [], "ключи": [], "веб": []}
+    seats["решения_когда"] = args.when
+    save_seats(args.seats, seats)
+    print("развилки человека: " + ("решает совет ИИ ночью, каждое решение — отдельный коммит с отменой утром"
+                                   if args.when == "council" else
+                                   "всё на утро — задача ставится на паузу с вопросом, ночь идёт по другим частям"))
+    return 0
+
+
+DECISIONS_HEAD = ("# Решения ночи\n\nРазвилки, которые обычно оставляют человеку. Утром они — первыми в "
+                  "MORNING.md, раздел «Нужно Ваше решение».\n"
+                  "Отправка, публикация, оплата, удаление без возврата и вход с паролем совет не решает "
+                  "никогда — они всегда ждут утра.\n")
+
+
+def decisions_file(folder):
+    path = os.path.join(folder or os.getcwd(), "решения.md")
+    if not os.path.exists(path):
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(DECISIONS_HEAD)
+    return path
+
+
+def cmd_decide(args):
+    path = decisions_file(args.dir)
+    undo = f"git revert {args.commit}" if args.commit else (args.undo or "вручную: вернуть, как было до решения")
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(f"\n## {now():%d.%m %H:%M} — решил совет ИИ: {args.what}\n"
+                 f"- Почему: {args.why}\n- Кто советовал: {args.who}\n"
+                 f"- Другие варианты: {args.alt or '—'}\n- Коммит: {args.commit or '—'}\n"
+                 f"- Отменить: `{undo}`\n- Исправить так: «…» — напишите утром, Claude переделает\n")
+    print(json.dumps({"решения": path, "отменить": undo}, ensure_ascii=False))
+    return 0
+
+
+def cmd_hold(args):
+    path = decisions_file(args.dir)
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(f"\n## {now():%d.%m %H:%M} — ждёт Вашего ответа: {args.question}\n"
+                 f"- Без ответа стоит: {args.waits or '—'}\n- Варианты: {args.alt or '—'}\n- Ваш ответ: \n")
+    print(json.dumps({"решения": path, "пауза": args.waits or args.question}, ensure_ascii=False))
+    return 0
+
+
 def save_for_morning(args, prompt):
     folder = args.dir or (os.path.dirname(os.path.abspath(args.seats)) if args.seats else os.getcwd())
     path = os.path.join(folder, "утро-совет.md")
@@ -485,6 +538,8 @@ def cmd_summary(args):
     print("  Ночью работают: " + (", ".join(work) or "—"))
     print("  Запас: " + (", ".join(reserve) or "—"))
     print("  Не работает: " + (", ".join(broken) or "—"))
+    print("  Развилки человека: " + ("решает совет ИИ, утром — список с отменой каждого решения"
+                                     if decide_when(seats) == "council" else "всё на утро — задачи с вопросом ждут Вас"))
     if not work and not reserve:
         print("  Честно: живых помощников других компаний нет — ночь пройдёт только со своими "
               "критиками Claude (свежий субагент). Лучше исправить до ухода:")
@@ -596,6 +651,23 @@ def main(argv=None):
     ww = sub.add_parser("web-when")
     ww.add_argument("--seats", required=True)
     ww.add_argument("when", choices=["night", "morning"], help="night — веб-чаты ночной запас; morning — вопросы утром")
+    dw = sub.add_parser("decide-when")
+    dw.add_argument("--seats", required=True)
+    dw.add_argument("when", choices=["council", "morning"],
+                    help="council — развилки решает совет ИИ (по умолчанию); morning — всё на утро")
+    d = sub.add_parser("decide")
+    d.add_argument("--dir", help="папка задачи (там решения.md)")
+    d.add_argument("--what", required=True)
+    d.add_argument("--why", required=True)
+    d.add_argument("--who", required=True, help="кто советовал: codex, grok, свои критики…")
+    d.add_argument("--alt", default="")
+    d.add_argument("--commit", default="", help="коммит этого решения — утром git revert <коммит>")
+    d.add_argument("--undo", default="", help="как отменить, если не git")
+    h = sub.add_parser("hold")
+    h.add_argument("--dir")
+    h.add_argument("--question", required=True)
+    h.add_argument("--waits", default="", help="что стоит без ответа")
+    h.add_argument("--alt", default="")
     for name in ("summary", "next", "used"):
         p = sub.add_parser(name)
         p.add_argument("--seats", required=True)
@@ -609,7 +681,8 @@ def main(argv=None):
                    help="не переходить к следующему, если первый не ответил")
     args = ap.parse_args(argv)
     return {"list": cmd_list, "rollcall": cmd_rollcall, "probe": cmd_rollcall,
-            "web-sites": cmd_web_sites, "web-mark": cmd_web_mark, "web-when": cmd_web_when, "summary": cmd_summary,
+            "web-sites": cmd_web_sites, "web-mark": cmd_web_mark, "web-when": cmd_web_when,
+            "decide-when": cmd_decide_when, "decide": cmd_decide, "hold": cmd_hold, "summary": cmd_summary,
             "next": cmd_next, "used": cmd_used, "ask": cmd_ask}[args.cmd](args)
 
 

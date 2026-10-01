@@ -5,7 +5,7 @@
 Claude is the main agent for the night. Its helpers are AIs of OTHER companies, in this order:
 
   1. programs by subscription already on this computer (codex, agy/gemini, grok, kimi, qwen);
-  2. free keys, only if the person set them up earlier (course step 12A): OpenRouter free models,
+  2. free keys, only if the person set them up earlier (the course's free-keys evenings): OpenRouter free models,
      Groq, Google AI Studio - read from the environment or ~/.nightcall/free-keys.env;
   3. web chats in the person's own Chrome - only the sites that passed the roll call (web-mark),
      and only if the person chose `web: night` (default); with `web: morning` the question that
@@ -59,7 +59,7 @@ HELPERS = [
 # Claude itself is checked in the roll call too (the night stands on it), but never asked as a helper.
 MAIN = ("anthropic", "claude", lambda p: ["-p", p], "Claude (главный)")
 
-# Free keys (course step 12A). Only used when the person already put the key in the environment or
+# Free keys (the course's free-keys evenings). Only used when the person already put the key in the environment or
 # in ~/.nightcall/free-keys.env. OpenAI-compatible chat endpoints, free models only.
 FREE_KEYS = [
     ("openrouter", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1/chat/completions",
@@ -205,7 +205,7 @@ def run(helper, prompt, timeout, cwd=None):
     return r
 
 
-# ---------- free keys (step 12A) ----------
+# ---------- free keys (the course's free-keys evenings) ----------
 
 def keys_file():
     home = os.environ.get("NIGHTCALL_HOME", os.path.expanduser("~/.nightcall"))

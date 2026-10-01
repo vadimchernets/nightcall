@@ -51,7 +51,7 @@ setting. Everything that needs them happens in the next five minutes, before the
    empty `PLAN.md` and `PROGRESS.md`. `begin` **always** puts the night on a safety net, for any task,
    with no question to the person: a restore point (not under git → `git init` + a commit «перед
    ночью»; under git → a commit of what is not committed + a tag `nightcall-before-<time>`) and the
-   fence rule of step 13A in the folder's `CLAUDE.md` — work only inside this folder. Say the restore
+   fence rule of the course's fence step («Fence and time machine») in the folder's `CLAUDE.md` — work only inside this folder. Say the restore
    point in one line. From here on, all work happens inside this folder; anything needed from
    outside is copied in. Write the plan now (§1), while the person can still glance at it.
    One commit per step lets the person undo any step in the morning.
@@ -140,7 +140,7 @@ Use them where a second head changes the result: the plan, a hard decision, a fi
 the text or code, facts you are not sure of. Not on every sentence.
 
 **The order of replacement is fixed**: a live program by subscription → at a limit or failure the
-next program of another company → free keys (if set up, course step 12A) → a web chat that passed
+next program of another company → free keys (if set up, the course's free-keys evenings) → a web chat that passed
 the roll call (with `web: night`, the default; with `web: morning` the question waits in
 `утро-совет.md`) → Claude's own critics (a fresh sub-agent), said out loud.
 

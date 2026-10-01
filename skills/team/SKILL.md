@@ -25,7 +25,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" rollcall --out "<seats>"
 ```
 
 Every program found (claude, codex, agy/gemini, grok, kimi, qwen) and every free key the person set
-up earlier (course step 12A: `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY` in the
+up earlier (the course's free-keys evenings: `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY` in the
 environment or `~/.nightcall/free-keys.env`) gets «Проверка связи. Ответь одним словом: ок», 90
 seconds each. Show the table as printed: **жив / лимит (до ЧЧ:ММ, если видно) / не вошли / сбой /
 молчит / нет программы**. How to say it, with what fixes it:

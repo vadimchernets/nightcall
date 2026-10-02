@@ -1,0 +1,22 @@
+{
+  "title": "Nightcall: leave Claude Code working through the night",
+  "description": "Nightcall is a Claude Code plugin that leaves Claude Code working through the night on a task and produces a report in the morning. It keeps the computer awake for 8 or 12 hours on Mac, Linux or Windows (no administrator rights; switches itself off), writes a plan and a progress file, works step by step with self-critique, and brings in other AIs - the programs already paid for by subscription first, each checked that it is alive and replaced when it is not, then free keys if configured, then only the web chats in the person's browser that passed a roll call before the night. Ends with a morning report: done, not done, what to check. No keys, no paid API, nothing bought.",
+  "creators": [
+    {
+      "name": "Chernets, Vadym"
+    }
+  ],
+  "upload_type": "software",
+  "license": "apache-2.0",
+  "keywords": [
+    "claude-code-plugin",
+    "overnight",
+    "autonomous",
+    "keep-awake",
+    "caffeinate",
+    "multi-ai",
+    "progress-file",
+    "morning-report",
+    "non-programmers"
+  ]
+}

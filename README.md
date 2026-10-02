@@ -1,5 +1,7 @@
 # Nightcall
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23107725.svg)](https://doi.org/10.5281/zenodo.23107725)
+
 **Leave Claude Code working through the night on your task — and find a report in the morning.**
 
 You tell Claude what to do and go to bed. Claude writes a plan, keeps the computer awake,

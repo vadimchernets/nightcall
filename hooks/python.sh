@@ -3,6 +3,11 @@
 #
 #   sh python.sh <plugin> <say|quiet> <script.py> [args...]
 #
+# Hooks pass the script's full path. Skills pass it relative to the plugin root (scripts/x.py):
+# a skill runs this file through Claude Code's Bash tool, and its PowerShell twin through the
+# PowerShell tool, so a skill never calls `python3` itself (on Windows that name is often missing or
+# the Microsoft Store stub, and on a Mac without the Command Line Tools it is Apple's stub).
+#
 # Windows without Git Bash runs hooks in PowerShell instead; there hooks/python.ps1 does the same
 # job (see the note at its top on why each hooks.json command is two lines).
 #
@@ -20,6 +25,10 @@
 # never a window. Stdin is untouched until the real script gets it through `exec`.
 plugin=$1 mode=$2 script=$3
 shift 3
+case "$script" in
+  /*|[A-Za-z]:[/\\]*) ;;
+  *) script="$(cd "$(dirname "$0")/.." && pwd)/$script" ;;
+esac
 
 real() {   # real <command...>: is this a working Python 3.8+?
   "$@" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' </dev/null >/dev/null 2>&1
@@ -43,6 +52,17 @@ case "$os" in
     elif [ -n "$p" ]; then
       dev=$(xcode-select -p 2>/dev/null)
       [ -n "$dev" ] && [ -x "$dev/usr/bin/python3" ] && real "$p" && PY=$p
+    fi
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    # Windows (Git Bash): python.org's `python`, then the launcher `py -3`, then `python3` - the order
+    # of hooks/python.ps1. `python` and `python3` may be the Store stub; `real` rules it out.
+    p=$(command -v python 2>/dev/null) && real "$p" && PY=$p
+    if [ -z "$PY" ] && command -v py >/dev/null 2>&1 && real py -3; then
+      exec py -3 "$script" "$@"
+    fi
+    if [ -z "$PY" ]; then
+      p=$(command -v python3 2>/dev/null) && real "$p" && PY=$p
     fi
     ;;
   *)

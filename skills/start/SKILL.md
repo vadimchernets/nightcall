@@ -2,10 +2,22 @@
 name: start
 description: Put Claude to work for the whole night on the person's task - plan and progress file in a task folder, the computer kept awake for 8 or 12 hours, work step by step with self-critique, other AIs of other companies brought in (their own subscription programs first, free browser chats if none), dead helpers replaced, and a morning report of what was done, what was not and what to check. Use when the person says "work overnight", "work while I sleep", "night shift", "keep going while I sleep", "until morning" (in any language), or gives a big task and says they are leaving for the night.
 argument-hint: "<the task in your own words> [8|12 hours]"
-allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(date*) Bash(git *) Read Write Edit Glob Grep ToolSearch
+allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/*) PowerShell(& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" nightcall say scripts/*) Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(date*) Bash(git *) Read Write Edit Glob Grep ToolSearch
 ---
 
 # Nightcall: the night shift
+
+## Running nightcall's scripts (Mac, Linux, Windows)
+
+Every script command on this page is written for the **Bash** tool and starts with
+`sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/…`. If your shell tool is **PowerShell** (Windows
+without Git Bash), run the same command with only its start changed: `& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1"`
+in place of `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh"`, everything after it unchanged, on one line; text for
+standard input goes in as `@'…'@ | & "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" …` instead of `<<'EOF'`.
+Never call `python3`, `python` or `py` yourself: the launcher finds a real Python 3.8+ (`python`,
+then `py -3`, then `python3`) and never starts the Microsoft Store or Apple stub. If it answers
+with one line saying nightcall "is paused" because this computer has no working Python 3 yet, tell the
+person that in one plain line and go on by hand — never show them a Python error and stop.
 
 The person said: $ARGUMENTS
 
@@ -30,7 +42,7 @@ setting. Everything that needs them happens in the next five minutes, before the
    the AI council decide (default: the night doesn't stop, in the morning a list with an undo for
    each decision), or all to the morning (a task with a question waits for you, the night moves on
    to other parts)?" Save it:
-   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" decide-when --seats "<folder>/seats.json" council|morning`.
+   `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/team.py decide-when --seats "<folder>/seats.json" council|morning`.
    Silence means `council`. In both modes send, publish, pay, delete-for-good and sign in with a
    password are never decided at night — they always wait for the morning.
 
@@ -46,7 +58,7 @@ setting. Everything that needs them happens in the next five minutes, before the
    a new task with no folder yet gets `night-<date>-<short-name>`. Open the night:
 
    ```
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/night.py" begin --dir "<folder>" --hours <H>
+   sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/night.py begin --dir "<folder>" --hours <H>
    ```
    with the person's task **word for word** on standard input — it becomes `TASK.md`, next to an
    empty `PLAN.md` and `PROGRESS.md`. `begin` **always** puts the night on a safety net, for any task,
@@ -57,7 +69,7 @@ setting. Everything that needs them happens in the next five minutes, before the
    outside is copied in. Write the plan now (§1), while the person can still glance at it.
    One commit per step lets the person undo any step in the morning.
 
-4. **The checklist.** Run `/nightcall:ready` (or `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ready.py" --dir "<folder>"`).
+4. **The checklist.** Run `/nightcall:ready` (or `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/ready.py --dir "<folder>"`).
    Every NOT OK is fixed **now**, with the person, while they are still here. Show WATCH lines
    as one short list.
 
@@ -83,7 +95,7 @@ setting. Everything that needs them happens in the next five minutes, before the
    how to stop everything early (a file named `STOP` in the folder). Then arm the night — from here
    on a finished turn goes straight back to the next step (§4):
    ```
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/night.py" arm --dir "<folder>" --hours <H> --session "${CLAUDE_SESSION_ID}"
+   sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/night.py arm --dir "<folder>" --hours <H> --session "${CLAUDE_SESSION_ID}"
    ```
    (`--session` binds the night to this window only: another Claude Code window open tonight is
    never kept working.) and start working — do not wait for a reply. (With the loop script instead, do not arm: the loop
@@ -148,7 +160,7 @@ the roll call (with `web: night`, the default; with `web: morning` the question 
 `morning-advice.md`) → Claude's own critics (a fresh sub-agent), said out loud.
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" ask --seats "<folder>/seats.json" --progress "<folder>/PROGRESS.md" --dir "<folder>" -
+sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/team.py ask --seats "<folder>/seats.json" --progress "<folder>/PROGRESS.md" --dir "<folder>" -
 ```
 with the question on standard input. Ask the question **as a question** — never paste your own
 answer into it: an AI shown an answer agrees with it. Give it the paths of the files to read, not

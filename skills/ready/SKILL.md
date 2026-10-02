@@ -2,10 +2,22 @@
 name: ready
 description: The checklist and the roll call before leaving the computer working for the night - power, sleep and the laptop lid, system updates that restart at night, network, disk space, Claude Code permissions that would stop the night on the first question, the subscription limit, the restore point and the fence (made by itself if missing) - and which helper AIs are really alive - subscription programs with a test question, free keys, and Chrome with the web chats the person is signed in to, with "Allow" pressed now while the person is still here. Use before a night run, or when the person says "what does it need to work all night", "check before the night", "roll call", "ready for overnight" (in any language).
 argument-hint: "[task folder]"
-allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(date*) Read Write ToolSearch
+allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/*) PowerShell(& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" nightcall say scripts/*) Bash(date*) Read Write ToolSearch
 ---
 
 # Nightcall: ready for the night?
+
+## Running nightcall's scripts (Mac, Linux, Windows)
+
+Every script command on this page is written for the **Bash** tool and starts with
+`sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/…`. If your shell tool is **PowerShell** (Windows
+without Git Bash), run the same command with only its start changed: `& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1"`
+in place of `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh"`, everything after it unchanged, on one line; text for
+standard input goes in as `@'…'@ | & "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" …` instead of `<<'EOF'`.
+Never call `python3`, `python` or `py` yourself: the launcher finds a real Python 3.8+ (`python`,
+then `py -3`, then `python3`) and never starts the Microsoft Store or Apple stub. If it answers
+with one line saying nightcall "is paused" because this computer has no working Python 3 yet, tell the
+person that in one plain line and go on by hand — never show them a Python error and stop.
 
 The person said: $ARGUMENTS
 
@@ -15,10 +27,9 @@ signed in, allowed or clicked.
 ## 1. The computer
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ready.py" --dir "<task folder, if there is one>"
+sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/ready.py --dir "<task folder, if there is one>"
 ```
 
-(`python3` missing on Windows: try `py -3`, then `python`.)
 
 Show the result as three groups, short:
 

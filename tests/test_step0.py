@@ -5,8 +5,10 @@ pops Apple's "install developer tools?" window - in the middle of a lesson, on e
 Windows the trap is the Microsoft Store stub. Every case here builds a fake PATH, so it runs the
 same on any machine.
 """
+import glob
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -16,6 +18,11 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GUARD = os.path.join(ROOT, "hooks", "python.sh")
 PLUGIN = json.load(open(os.path.join(ROOT, ".claude-plugin", "plugin.json")))["name"]
+HOOKS = os.path.join(ROOT, "hooks", "hooks.json")
+has_hooks = unittest.skipUnless(os.path.exists(HOOKS), "this plugin has no hooks, only the launcher for its skills")
+SKILLS = sorted(glob.glob(os.path.join(ROOT, "skills", "*", "SKILL.md")))
+SH = 'sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" %s say ' % PLUGIN
+PS = '& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" %s say ' % PLUGIN
 
 
 def tool(folder, name, body):
@@ -95,6 +102,7 @@ class StepZero(unittest.TestCase):
         self.assertIn("paused", out)
         self.assertEqual(self.run_guard("quiet", {"STEP0_OS": "Linux"})[:2], (0, ""))
 
+    @has_hooks
     def test_every_hook_goes_through_the_guard(self):
         hooks = json.load(open(os.path.join(ROOT, "hooks", "hooks.json")))["hooks"]
         commands = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]]
@@ -116,6 +124,7 @@ class StepZero(unittest.TestCase):
         self.assertEqual(sum(" say " in c for c in commands), 0 if "SessionStart" not in hooks else 1)
 
 
+    @has_hooks
     def test_each_command_runs_in_sh_to_the_end_of_its_first_line_only(self):
         """sh must never read the PowerShell line: `exec` hands the process to python.sh, and its exit code is the
         hook's (a guard says 2 to block)."""
@@ -140,6 +149,7 @@ class StepZero(unittest.TestCase):
     WORD = "\u043f\u0440\u0438\u0432\u0435\u0442"   # a non-English word: the hook JSON is UTF-8
 
     @unittest.skipUnless(shutil.which("pwsh"), "PowerShell 7 is not installed here")
+    @has_hooks
     def test_in_powershell_the_second_line_finds_python_and_passes_stdin_and_exit_code(self):
         hooks = json.load(open(os.path.join(ROOT, "hooks", "hooks.json")))["hooks"]
         command = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]][0]
@@ -161,6 +171,7 @@ class StepZero(unittest.TestCase):
         self.assertEqual(p.stderr, "")
 
     @unittest.skipUnless(shutil.which("pwsh"), "PowerShell 7 is not installed here")
+    @has_hooks
     def test_in_powershell_the_unknown_first_line_says_nothing(self):
         hooks = json.load(open(os.path.join(ROOT, "hooks", "hooks.json")))["hooks"]
         command = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]][0]
@@ -173,6 +184,60 @@ class StepZero(unittest.TestCase):
                             "-Command", command], capture_output=True, text=True, timeout=60,
                            env=dict(os.environ, CLAUDE_PLUGIN_ROOT=fake_root))
         self.assertEqual((p.returncode, p.stdout, p.stderr), (5, "", ""))
+
+    def test_windows_git_bash_tries_python_then_py_then_python3(self):
+        self.fake_python("python3")
+        tool(self.bin, "python", 'echo python >> "%s"\n[ "$1" = -c ] && exit 0\necho "ran by python"' % self.ran)
+        code, out, err = self.run_guard("say", {"STEP0_OS": "MINGW64_NT-10.0"})
+        self.assertEqual((code, out.strip()), (0, "ran by python"), err)
+
+    def test_a_skill_passes_the_script_relative_to_the_plugin_root(self):
+        root = os.path.join(self.tmp, "plugin root")
+        os.makedirs(os.path.join(root, "hooks"))
+        os.makedirs(os.path.join(root, "scripts"))
+        shutil.copy(GUARD, os.path.join(root, "hooks"))
+        open(os.path.join(root, "scripts", "x.py"), "w").write(
+            "import sys\nprint('args', sys.argv[1:], sys.stdin.read().strip())\nsys.exit(3)\n")
+        elsewhere = os.path.join(self.tmp, "elsewhere")
+        os.makedirs(os.path.join(elsewhere, "scripts"))
+        open(os.path.join(elsewhere, "scripts", "x.py"), "w").write("print('the wrong script')\n")
+        p = subprocess.run(["/bin/sh", "-c", 'sh "%s/hooks/python.sh" %s say scripts/x.py list --folder "a b" <<\'EOF\'\n%s\nEOF'
+                            % (root, PLUGIN, self.WORD)], cwd=elsewhere, capture_output=True, text=True, timeout=20,
+                           env=dict(os.environ))
+        self.assertEqual((p.returncode, p.stdout.strip()), (3, "args ['list', '--folder', 'a b'] " + self.WORD), p.stderr)
+
+    @unittest.skipUnless(shutil.which("pwsh"), "PowerShell 7 is not installed here")
+    def test_in_powershell_a_skill_runs_the_twin_as_a_file_with_piped_text(self):
+        root = os.path.join(self.tmp, "plugin root")
+        os.makedirs(os.path.join(root, "hooks"))
+        os.makedirs(os.path.join(root, "scripts"))
+        shutil.copy(os.path.join(ROOT, "hooks", "python.ps1"), os.path.join(root, "hooks"))
+        open(os.path.join(root, "scripts", "x.py"), "w").write(
+            "import sys\nprint('args', sys.argv[1:], sys.stdin.read().strip())\nsys.exit(3)\n")
+        command = "@'\n%s\n'@ | & \"%s/hooks/python.ps1\" %s say scripts/x.py list --folder \"a b\"" % (self.WORD, root, PLUGIN)
+        p = subprocess.run([shutil.which("pwsh"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                            "-Command", command], capture_output=True, text=True, timeout=60, cwd=self.tmp)
+        self.assertEqual((p.returncode, p.stdout.strip()), (3, "args ['list', '--folder', 'a b'] " + self.WORD), p.stderr)
+
+    def test_every_skill_runs_its_scripts_through_the_launcher(self):
+        """No skill calls python3, python or py itself; every script it names exists; its allowed-tools let both the
+        Bash form and the PowerShell form of that script run without a prompt (the rule must be quoted as the
+        command is: Claude Code matches the command text, quotes included)."""
+        for path in SKILLS:
+            text = open(path, encoding="utf-8").read()
+            name = os.path.relpath(path, ROOT)
+            head = text.split("\n---\n", 1)[0]
+            body = text.split("\n---\n", 1)[1]
+            self.assertIsNone(re.search(r'(python3?|py -3)\s+"?\$\{CLAUDE_PLUGIN_ROOT\}', text), name)
+            scripts = set(re.findall(re.escape(SH) + r"(scripts/[\w.-]+\.py)", body))
+            for script in scripts:
+                self.assertTrue(os.path.exists(os.path.join(ROOT, script)), "%s names %s" % (name, script))
+                for rule in ("Bash(%s%s *)" % (SH, script), "PowerShell(%s%s *)" % (PS, script)):
+                    wild = rule.replace(script + " *)", "scripts/*)")
+                    self.assertTrue(rule in head or wild in head, "%s: allowed-tools lacks %s" % (name, rule))
+            if scripts or "python.sh" in head:
+                self.assertIn("## Running %s's scripts (Mac, Linux, Windows)" % PLUGIN, body, name)
+                self.assertIn('& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1"', body, name)
 
 
 if __name__ == "__main__":

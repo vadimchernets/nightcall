@@ -2,22 +2,33 @@
 name: morning
 description: Close the night and write the morning report MORNING.md in the task folder - first what needs the person's decision (defaults taken at night, open questions), then what was done (with how it was checked), what was not done and why, what to check, which helper AIs took part - built only from PROGRESS.md, PLAN.md and git log, never from memory. Then switches the coffee off. Use at the end of a night run, when the person says "what got done overnight", "morning report", "good morning, what's there" (in any language).
 argument-hint: "[task folder]"
-allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(powershell *) Bash(git *) Bash(date*) Read Write
+allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/*) PowerShell(& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" nightcall say scripts/*) Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(powershell *) Bash(git *) Bash(date*) Read Write
 ---
 
 # Nightcall: good morning
 
+## Running nightcall's scripts (Mac, Linux, Windows)
+
+Every script command on this page is written for the **Bash** tool and starts with
+`sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/…`. If your shell tool is **PowerShell** (Windows
+without Git Bash), run the same command with only its start changed: `& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1"`
+in place of `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh"`, everything after it unchanged, on one line; text for
+standard input goes in as `@'…'@ | & "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" …` instead of `<<'EOF'`.
+Never call `python3`, `python` or `py` yourself: the launcher finds a real Python 3.8+ (`python`,
+then `py -3`, then `python3`) and never starts the Microsoft Store or Apple stub. If it answers
+with one line saying nightcall "is paused" because this computer has no working Python 3 yet, tell the
+person that in one plain line and go on by hand — never show them a Python error and stop.
+
 The person said: $ARGUMENTS
 
-Answer in the person's language. Find the night folder: the argument, or `python3
-"${CLAUDE_PLUGIN_ROOT}/scripts/night.py" status`.
+Answer in the person's language. Find the night folder: the argument, or `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/night.py status`.
 
 ## 1. Read, do not remember
 
 Read `TASK.md`, `PLAN.md`, `PROGRESS.md`, `decisions.md` (or the pre-0.3.4 Russian-named file, see
 `lang/ru.json` legacy) and `morning-advice.md` (same, its own pre-0.3.4 Russian-named file) if they
 are there, and `git log --oneline` if the folder is under git.
-Who of the helpers really answered: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" used --seats
+Who of the helpers really answered: `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/team.py used --seats
 "<folder>/seats.json"` (program, key or web chat, and how many answers).
 The report is built **only** from these. A step with no line in `PROGRESS.md` saying how it was
 checked is not "done" — it is "done, not checked".
@@ -62,7 +73,7 @@ something the person can open and look at.
 ## 3. Close the night
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/night.py" end
+sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/night.py end
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/awake.sh" stop
 ```
 (Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/awake-windows.ps1" -Stop`.)

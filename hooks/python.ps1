@@ -3,6 +3,11 @@
 #
 #   <plugin> <say|quiet> <script.py> [args...]
 #
+# Hooks load it as a script block and pass the script's full path. Skills run it as a file through
+# Claude Code's PowerShell tool (Windows without Git Bash) - & "<plugin root>/hooks/python.ps1"
+# <plugin> say scripts/x.py ... - with the script relative to the plugin root, and may pipe text in
+# (@'...'@ | & ...), which then goes to the script's stdin as UTF-8.
+#
 # Why (02.10.2026). On Windows without Git Bash, Claude Code runs a hook command in PowerShell
 # (`pwsh` or `powershell` -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command <command>),
 # where `sh` does not exist. Every command in hooks.json is therefore two lines: the first,
@@ -23,6 +28,10 @@ $plugin = $args[0]
 $mode = $args[1]
 $script = $args[2]
 $rest = @($args | Select-Object -Skip 3)
+$piped = @($input)
+if ($script -and -not [System.IO.Path]::IsPathRooted($script) -and $PSScriptRoot) {
+  $script = Join-Path (Split-Path -Parent $PSScriptRoot) $script
+}
 
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
@@ -53,7 +62,13 @@ foreach ($candidate in @('python', 'py -3', 'python3')) {
   $psi.FileName = $exe.Source
   $psi.Arguments = (@($pre) + @($script) + @($rest) | ForEach-Object { Quote-Argument $_ }) -join ' '
   $psi.UseShellExecute = $false
+  $psi.RedirectStandardInput = ($piped.Count -gt 0)
   $proc = [System.Diagnostics.Process]::Start($psi)
+  if ($piped.Count -gt 0) {   # text piped into this file: hand it to the script as UTF-8, then close stdin
+    $bytes = (New-Object System.Text.UTF8Encoding $false).GetBytes((($piped | ForEach-Object { [string]$_ }) -join "`n") + "`n")
+    $proc.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
+    $proc.StandardInput.Close()
+  }
   $proc.WaitForExit()
   exit $proc.ExitCode
 }

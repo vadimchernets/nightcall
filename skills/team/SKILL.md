@@ -2,10 +2,22 @@
 name: team
 description: The roll call of helper AIs before the night, and their replacement during it. While the person is still here - every AI program of another company already installed by subscription (Codex/ChatGPT, Gemini/agy, Grok, Kimi, Qwen) and every free key (NVIDIA first, then Google AI Studio, Groq, OpenRouter) gets a test question; then Chrome is checked (Claude in Chrome connected, a tab opens, the person is signed in to ChatGPT, Gemini, Kimi, DeepSeek, Meta AI...), and the person is asked to press "Allow" now, not at night. At night - CLI, then the next CLI, then free keys, then only the web chats that passed the roll call, then Claude's own critics; every replacement is a line in PROGRESS.md. Use when the person says "which AIs are alive", "roll call", "connect other AIs", "check the helpers", "check the browser", "other AIs" (in any language), or during a night run every few hours.
 argument-hint: "[folder of the night run]"
-allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(open *) Bash(osascript *) Bash(date*) Read Write ToolSearch
+allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/*) PowerShell(& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" nightcall say scripts/*) Bash(open *) Bash(osascript *) Bash(date*) Read Write ToolSearch
 ---
 
 # Nightcall: the team for tonight
+
+## Running nightcall's scripts (Mac, Linux, Windows)
+
+Every script command on this page is written for the **Bash** tool and starts with
+`sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/…`. If your shell tool is **PowerShell** (Windows
+without Git Bash), run the same command with only its start changed: `& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1"`
+in place of `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh"`, everything after it unchanged, on one line; text for
+standard input goes in as `@'…'@ | & "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" …` instead of `<<'EOF'`.
+Never call `python3`, `python` or `py` yourself: the launcher finds a real Python 3.8+ (`python`,
+then `py -3`, then `python3`) and never starts the Microsoft Store or Apple stub. If it answers
+with one line saying nightcall "is paused" because this computer has no working Python 3 yet, tell the
+person that in one plain line and go on by hand — never show them a Python error and stop.
 
 The person said: $ARGUMENTS
 
@@ -21,7 +33,7 @@ happens now. At night nobody presses anything.
 ### a) Programs by subscription and free keys
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" rollcall --out "<seats>"
+sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/team.py rollcall --out "<seats>"
 ```
 
 Every program found (claude, codex, agy/gemini, grok, kimi, qwen) and every free key the person set
@@ -63,14 +75,14 @@ Claude's own line is the main agent, not a helper: a second Claude is not a seco
 
    After each site:
    ```
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" web-mark --seats "<seats>" --site chatgpt --status alive
+   sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/team.py web-mark --seats "<seats>" --site chatgpt --status alive
    ```
    The record in `seats.json` is `web-<site>`: alive / needs-sign-in / captcha / did-not-open.
 
 ### c) The result
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" summary --seats "<seats>"
+sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/team.py summary --seats "<seats>"
 ```
 Say it as three lines and a to-do: **"Working tonight: …; reserve: …; not working: … — what to do
 now: sign in to …, press …, install …"**. If there is not a single live helper of another company
@@ -85,13 +97,13 @@ default in it: "Web chats that passed the roll call are the night reserve, used 
 keys (web: night). If you'd rather the browser is left alone at night — web: morning: questions for
 them will go into morning-advice.md. Silence means night." Record the answer:
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" web-when --seats "<seats>" night   # or morning
+sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/team.py web-when --seats "<seats>" night   # or morning
 ```
 
 ## 2. At night — asking, with automatic replacement
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" ask --seats "<seats>" --progress "<night folder>/PROGRESS.md" --dir "<folder the helper may read>" [--who kimi] -
+sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/team.py ask --seats "<seats>" --progress "<night folder>/PROGRESS.md" --dir "<folder the helper may read>" [--who kimi] -
 ```
 Question on standard input. The order is fixed:
 

@@ -100,7 +100,10 @@ class StepZero(unittest.TestCase):
         commands = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]]
         self.assertTrue(commands)
         sh_line = 'exec sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" %s ' % PLUGIN
-        ps_line = ('& ([scriptblock]::Create((Get-Content -Raw -LiteralPath "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1")))'
+        # `trap` is hoisted to the top of its scope, so it also silences PowerShell's "exec is not recognized"
+        # for the first line - which would otherwise stand in front of a guard's reason when it blocks.
+        ps_line = ('trap { continue }; '
+                   '& ([scriptblock]::Create((Get-Content -Raw -LiteralPath "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1")))'
                    ' %s ' % PLUGIN)
         for c in commands:
             # Two lines, one per kind of shell: sh and Git Bash run the first (`exec` never comes back), PowerShell
@@ -155,6 +158,21 @@ class StepZero(unittest.TestCase):
                             "-Command", command], input=self.WORD, capture_output=True, text=True, timeout=60,
                            env=dict(os.environ, CLAUDE_PLUGIN_ROOT=fake_root))
         self.assertEqual((p.returncode, p.stdout.strip()), (2, "got " + self.WORD), p.stderr)
+        self.assertEqual(p.stderr, "")
+
+    @unittest.skipUnless(shutil.which("pwsh"), "PowerShell 7 is not installed here")
+    def test_in_powershell_the_unknown_first_line_says_nothing(self):
+        hooks = json.load(open(os.path.join(ROOT, "hooks", "hooks.json")))["hooks"]
+        command = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]][0]
+        command = "no-such-command-anywhere " + command.split("\n")[0][len("exec "):] + "\n" + command.split("\n")[1]
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", "${env:CLAUDE_PLUGIN_ROOT}")
+        fake_root = os.path.join(self.tmp, "root")
+        os.makedirs(os.path.join(fake_root, "hooks"))
+        open(os.path.join(fake_root, "hooks", "python.ps1"), "w").write("[Console]::Error.Write(''); exit 5\n")
+        p = subprocess.run([shutil.which("pwsh"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                            "-Command", command], capture_output=True, text=True, timeout=60,
+                           env=dict(os.environ, CLAUDE_PLUGIN_ROOT=fake_root))
+        self.assertEqual((p.returncode, p.stdout, p.stderr), (5, "", ""))
 
 
 if __name__ == "__main__":

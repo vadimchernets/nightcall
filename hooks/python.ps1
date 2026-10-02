@@ -8,7 +8,9 @@
 # where `sh` does not exist. Every command in hooks.json is therefore two lines: the first,
 # `exec sh .../python.sh ...`, is what sh and Git Bash run (exec replaces the shell, so they never
 # read the second line); in PowerShell `exec` is no command, so it goes on to the second line, which
-# loads this file as a script block - a script block is never stopped by the execution policy.
+# loads this file as a script block - a script block is never stopped by the execution policy. That
+# line starts with `trap { continue }`: a trap covers its whole scope, the line before it too, so
+# PowerShell never prints "exec is not recognized" in front of what a guard has to say.
 #
 # Same rules as python.sh. python.org's Python is called `python` or `py` on Windows; `python` and
 # `python3` may be the Microsoft Store stub, which answers `-c` with exit 9009 and never opens the

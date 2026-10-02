@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "exec sh \"${CLAUDE_PLUGIN_ROOT}/hooks/python.sh\" nightcall quiet \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"\n& ([scriptblock]::Create((Get-Content -Raw -LiteralPath \"${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1\"))) nightcall quiet \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"",
+            "command": "exec sh \"${CLAUDE_PLUGIN_ROOT}/hooks/python.sh\" nightcall quiet \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"\ntrap { continue }; & ([scriptblock]::Create((Get-Content -Raw -LiteralPath \"${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1\"))) nightcall quiet \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"",
             "timeout": 10
           }
         ]

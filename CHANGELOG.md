@@ -4,7 +4,8 @@
 
 - Hooks on Windows without Git Bash. There Claude Code runs hook commands in PowerShell, where `sh` does not
   exist, so the hooks failed. Each command in `hooks/hooks.json` is now two lines: sh and Git Bash run the first
-  (`exec sh hooks/python.sh ...`, which never comes back); PowerShell finds no `exec`, goes on to the second and
+  (`exec sh hooks/python.sh ...`, which never comes back); PowerShell finds no `exec`, goes on to the second (whose
+  hoisted `trap { continue }` keeps it quiet about that) and
   loads `hooks/python.ps1` - the same step 0 guard (a real Python 3.8+ or one line and exit 0), as a script block
   so no execution policy stops it, with UTF-8 both ways. Checked on GitHub Actions on windows-latest (PowerShell 7,
   Windows PowerShell 5.1, Git Bash; with Python and without), macos-latest and ubuntu-latest, by a real

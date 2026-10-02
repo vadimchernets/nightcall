@@ -3,6 +3,9 @@
 #
 #   sh python.sh <plugin> <say|quiet> <script.py> [args...]
 #
+# Windows without Git Bash runs hooks in PowerShell instead; there hooks/python.ps1 does the same
+# job (see the note at its top on why each hooks.json command is two lines).
+#
 # Why (02.10.2026). A Mac without Apple's Command Line Tools still has /usr/bin/python3 - a stub
 # that, when run, pops the "install developer tools?" window. A hook that simply ran `python3`
 # threw that window at a beginner in the middle of a lesson, on every session start and on every
@@ -25,6 +28,11 @@ real() {   # real <command...>: is this a working Python 3.8+?
 # The two overrides exist for the tests only (tests/test_step0.py): a fake Apple stub and a fake OS.
 stub=${STEP0_APPLE_STUB:-/usr/bin/python3}
 os=${STEP0_OS:-$(uname -s 2>/dev/null)}
+
+# UTF-8 both ways for the real script: on Windows (Git Bash) Python would read the hook's JSON
+# in the ANSI code page and garble every non-English file name.
+PYTHONUTF8=1 PYTHONIOENCODING=utf-8
+export PYTHONUTF8 PYTHONIOENCODING
 
 PY=
 case "$os" in

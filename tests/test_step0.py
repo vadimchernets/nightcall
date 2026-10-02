@@ -7,6 +7,7 @@ same on any machine.
 """
 import json
 import os
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -98,10 +99,62 @@ class StepZero(unittest.TestCase):
         hooks = json.load(open(os.path.join(ROOT, "hooks", "hooks.json")))["hooks"]
         commands = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]]
         self.assertTrue(commands)
+        sh_line = 'exec sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" %s ' % PLUGIN
+        ps_line = ('& ([scriptblock]::Create((Get-Content -Raw -LiteralPath "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1")))'
+                   ' %s ' % PLUGIN)
         for c in commands:
-            self.assertTrue(c.startswith('sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" %s ' % PLUGIN), c)
+            # Two lines, one per kind of shell: sh and Git Bash run the first (`exec` never comes back), PowerShell
+            # - Windows without Git Bash - finds no `exec`, goes on, and runs the second. Same arguments in both.
+            first, second = c.split("\n")
+            self.assertTrue(first.startswith(sh_line), first)
+            self.assertTrue(second.startswith(ps_line), second)
+            self.assertEqual(first[len(sh_line):], second[len(ps_line):])
         # exactly one hook speaks, so the person hears the step-0 line once per session
         self.assertEqual(sum(" say " in c for c in commands), 0 if "SessionStart" not in hooks else 1)
+
+
+    def test_each_command_runs_in_sh_to_the_end_of_its_first_line_only(self):
+        """sh must never read the PowerShell line: `exec` hands the process to python.sh, and its exit code is the
+        hook's (a guard says 2 to block)."""
+        hooks = json.load(open(os.path.join(ROOT, "hooks", "hooks.json")))["hooks"]
+        command = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]][0]
+        fake_root = os.path.join(self.tmp, "root")
+        os.makedirs(os.path.join(fake_root, "hooks"))
+        tool(os.path.join(fake_root, "hooks"), "python.sh", 'echo "args: $*"; exit 2')
+        p = subprocess.run(["/bin/sh", "-c", command], env={"PATH": os.environ["PATH"], "CLAUDE_PLUGIN_ROOT": fake_root},
+                           capture_output=True, text=True, timeout=20)
+        self.assertEqual(p.returncode, 2, p.stderr)
+        self.assertTrue(p.stdout.startswith("args: %s " % PLUGIN), p.stdout)
+        self.assertEqual(p.stderr, "")
+
+    def test_the_powershell_twin_is_plain_ascii_and_says_the_same_line(self):
+        ps1 = open(os.path.join(ROOT, "hooks", "python.ps1"), "rb").read()
+        ps1.decode("ascii")                      # Windows PowerShell 5.1 reads a file without a BOM as ANSI
+        sh = open(GUARD).read()
+        said = sh.split('echo "$plugin is paused:', 1)[1].split('"', 1)[0]
+        self.assertIn(said, ps1.decode())
+
+    WORD = "\u043f\u0440\u0438\u0432\u0435\u0442"   # a non-English word: the hook JSON is UTF-8
+
+    @unittest.skipUnless(shutil.which("pwsh"), "PowerShell 7 is not installed here")
+    def test_in_powershell_the_second_line_finds_python_and_passes_stdin_and_exit_code(self):
+        hooks = json.load(open(os.path.join(ROOT, "hooks", "hooks.json")))["hooks"]
+        command = [h["command"] for groups in hooks.values() for g in groups for h in g["hooks"]][0]
+        command = command.replace("${CLAUDE_PLUGIN_ROOT}", "${env:CLAUDE_PLUGIN_ROOT}")   # what Claude Code does
+        # Only the second line: PowerShell 7 on Mac and Linux has an `exec` of its own (Switch-Process) and would
+        # take the first; on Windows there is none, and the second line is what runs.
+        command = command.split("\n")[1]
+        fake_root = os.path.join(self.tmp, "root")
+        os.makedirs(os.path.join(fake_root, "hooks"))
+        shutil.copy(os.path.join(ROOT, "hooks", "python.ps1"), os.path.join(fake_root, "hooks"))
+        script = command.split('"${env:CLAUDE_PLUGIN_ROOT}/', 2)[2].split('"')[0]
+        os.makedirs(os.path.dirname(os.path.join(fake_root, script)), exist_ok=True)
+        open(os.path.join(fake_root, script), "w").write(
+            "import sys\nprint('got ' + sys.stdin.read().strip())\nsys.exit(2)\n")
+        p = subprocess.run([shutil.which("pwsh"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                            "-Command", command], input=self.WORD, capture_output=True, text=True, timeout=60,
+                           env=dict(os.environ, CLAUDE_PLUGIN_ROOT=fake_root))
+        self.assertEqual((p.returncode, p.stdout.strip()), (2, "got " + self.WORD), p.stderr)
 
 
 if __name__ == "__main__":

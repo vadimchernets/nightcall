@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.7 — 2026-10-02
+
+- Hooks on Windows without Git Bash. There Claude Code runs hook commands in PowerShell, where `sh` does not
+  exist, so the hooks failed. Each command in `hooks/hooks.json` is now two lines: sh and Git Bash run the first
+  (`exec sh hooks/python.sh ...`, which never comes back); PowerShell finds no `exec`, goes on to the second and
+  loads `hooks/python.ps1` - the same step 0 guard (a real Python 3.8+ or one line and exit 0), as a script block
+  so no execution policy stops it, with UTF-8 both ways. Checked on GitHub Actions on windows-latest (PowerShell 7,
+  Windows PowerShell 5.1, Git Bash; with Python and without), macos-latest and ubuntu-latest, by a real
+  `claude -p` session and by every hook command run the way Claude Code spawns it.
+- `hooks/python.sh` exports `PYTHONUTF8=1`, so on Windows a hook reads non-English file names right.
+- README: install from Poly A1's catalogue by its raw link (`/plugin marketplace add https://raw.githubusercontent.com/vadimchernets/poly-a1-plugins/main/.claude-plugin/marketplace.json`,
+  then `/plugin install nightcall@poly-a1`) - no git needed; the Poly A1 folder is the way without internet,
+  and `marketplace remove` is never the way to switch.
+
 ## 0.3.6 — 2026-10-02
 
 - Step 0 guard: every hook now runs through `hooks/python.sh`, which starts the hook only with a

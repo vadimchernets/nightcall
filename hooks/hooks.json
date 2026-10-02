@@ -1,12 +1,12 @@
 {
-  "description": "Nightcall: while a night run is on (see /nightcall:start), a finished turn is sent back to the next step instead of stopping. Off by itself at the end time, on MORNING.md, or on a STOP file in the task folder. The hook goes through hooks/python.sh (step 0 guard): without a real Python 3 it does nothing and never pops Apple's developer-tools window.",
+  "description": "Nightcall: while a night run is on (see /nightcall:start), a finished turn is sent back to the next step instead of stopping. Off by itself at the end time, on MORNING.md, or on a STOP file in the task folder. The hook goes through the step 0 guard - hooks/python.sh in sh and Git Bash, hooks/python.ps1 in PowerShell (Windows without Git Bash): without a real Python 3 it does nothing and never pops Apple's developer-tools window.",
   "hooks": {
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/python.sh\" nightcall quiet \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"",
+            "command": "exec sh \"${CLAUDE_PLUGIN_ROOT}/hooks/python.sh\" nightcall quiet \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"\n& ([scriptblock]::Create((Get-Content -Raw -LiteralPath \"${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1\"))) nightcall quiet \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"",
             "timeout": 10
           }
         ]

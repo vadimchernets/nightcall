@@ -60,8 +60,8 @@ def main():
     except Exception:
         return 0
     if datetime.datetime.now() >= until:
-        reason = ("Ночь кончилась по времени. Напиши утренний отчёт: выполни /nightcall:morning "
-                  f"для папки {folder}.")
+        reason = ("The night is over by time. Write the morning report: run /nightcall:morning "
+                  f"for folder {folder}.")
         # one last round to write the report, then never again
         if run.get("final_sent"):
             return 0
@@ -71,11 +71,11 @@ def main():
         if rounds >= int(run.get("max_rounds", 200)):
             return 0
         run["rounds"] = rounds + 1
-        reason = (f"Ночная работа ещё идёт (до {until:%H:%M}). Не останавливайся и ничего не спрашивай "
-                  f"у человека — он спит. Открой {folder}/PROGRESS.md, возьми следующий шаг из PLAN.md, "
-                  "сделай его, проверь, запиши итог в PROGRESS.md. Если все шаги сделаны — выполни "
-                  "/nightcall:morning. Спорное решение — прими с разумным значением по умолчанию и "
-                  "запиши в «Проверить утром».")
+        reason = (f"The night's work is still going (until {until:%H:%M}). Do not stop and do not ask "
+                  f"the person anything — they are asleep. Open {folder}/PROGRESS.md, take the next "
+                  "step from PLAN.md, do it, check it, write the result into PROGRESS.md. If every "
+                  "step is done — run /nightcall:morning. A disputed decision — take it with a "
+                  "reasonable default and write it down under \"Check in the morning\".")
     if session and not run.get("session"):
         run["session"] = session
     try:

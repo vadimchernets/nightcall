@@ -30,10 +30,10 @@ running_pid() {
 
 cmd_status() {
   if pid=$(running_pid); then
-    say "ВКЛЮЧЕНО: Mac не заснёт до $(cat "$UNTIL_FILE" 2>/dev/null) (процесс caffeinate $pid)."
+    say "ON: the Mac will not sleep until $(cat "$UNTIL_FILE" 2>/dev/null) (caffeinate process $pid)."
     return 0
   fi
-  say "ВЫКЛЮЧЕНО: Mac засыпает как обычно."
+  say "OFF: the Mac sleeps as usual."
   return 1
 }
 
@@ -43,10 +43,10 @@ cmd_stop() {
     sleep 0.3
     if ps -p "$pid" >/dev/null 2>&1; then kill -9 "$pid" 2>/dev/null; fi
     rm -f "$STATE" "$UNTIL_FILE"
-    say "ВЫКЛЮЧЕНО: кофеин снят, Mac снова засыпает как обычно."
+    say "OFF: caffeine removed, the Mac sleeps as usual again."
   else
     rm -f "$STATE" "$UNTIL_FILE"
-    say "Кофеин и так не был включён."
+    say "Caffeine wasn't on anyway."
   fi
 }
 
@@ -60,10 +60,10 @@ to_seconds() {
 }
 
 cmd_start() {
-  secs=$(to_seconds "$1") || { say "Не понял срок «$1». Пример: 8, 12, 10h или 30m."; exit 2; }
-  [ "$secs" -gt 0 ] || { say "Срок должен быть больше нуля."; exit 2; }
-  if [ "$secs" -gt $((24 * 3600)) ]; then say "Больше 24 часов не ставлю — поставьте заново утром."; exit 2; fi
-  command -v caffeinate >/dev/null 2>&1 || { say "На этом компьютере нет caffeinate — это точно Mac?"; exit 3; }
+  secs=$(to_seconds "$1") || { say "Didn't understand the duration \"$1\". Example: 8, 12, 10h or 30m."; exit 2; }
+  [ "$secs" -gt 0 ] || { say "The duration must be greater than zero."; exit 2; }
+  if [ "$secs" -gt $((24 * 3600)) ]; then say "I won't set more than 24 hours — set it again in the morning."; exit 2; fi
+  command -v caffeinate >/dev/null 2>&1 || { say "There's no caffeinate on this computer — is this really a Mac?"; exit 3; }
 
   mkdir -p "$STATE_DIR"
   if running_pid >/dev/null; then cmd_stop >/dev/null; fi
@@ -77,20 +77,20 @@ cmd_start() {
   pid=$!
   disown "$pid" 2>/dev/null || true
   sleep 0.3
-  if ! ps -p "$pid" >/dev/null 2>&1; then say "НЕ ВКЛЮЧИЛОСЬ: caffeinate сразу закрылся."; exit 4; fi
+  if ! ps -p "$pid" >/dev/null 2>&1; then say "DID NOT TURN ON: caffeinate closed right away."; exit 4; fi
   printf '%s' "$pid" > "$STATE"
   until_h=$(date -v+"${secs}"S '+%H:%M %d.%m' 2>/dev/null || date '+%H:%M')
   printf '%s' "$until_h" > "$UNTIL_FILE"
 
-  say "ВКЛЮЧЕНО: Mac не заснёт до $until_h ($((secs / 3600)) ч $(((secs % 3600) / 60)) мин), потом кофеин снимется сам."
-  say "  процесс caffeinate $pid, флаги $flags"
+  say "ON: the Mac will not sleep until $until_h ($((secs / 3600))h $(((secs % 3600) / 60))m), then caffeine comes off by itself."
+  say "  caffeinate process $pid, flags $flags"
   if pmset -g batt 2>/dev/null | head -1 | grep -q "AC Power"; then
-    say "  питание: от сети — хорошо."
+    say "  power: on mains — good."
   else
-    say "  ВНИМАНИЕ: сейчас от батареи — за ночь она может сесть, и тогда Mac уснёт. Подключите зарядку."
+    say "  WARNING: currently on battery — it may run down overnight, and then the Mac will sleep. Plug in the charger."
   fi
-  say "  Крышку ноутбука НЕ закрывайте: закрытая крышка усыпляет Mac, кофеин этого не отменяет."
-  say "  Снять раньше: bash \"$0\" stop"
+  say "  Do NOT close the laptop lid: a closed lid puts the Mac to sleep, and caffeine does not override that."
+  say "  Turn off earlier: bash \"$0\" stop"
 }
 
 case "${1:-}" in

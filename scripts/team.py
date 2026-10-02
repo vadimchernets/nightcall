@@ -5,30 +5,30 @@
 Claude is the main agent for the night. Its helpers are AIs of OTHER companies, in this order:
 
   1. programs by subscription already on this computer (codex, agy/gemini, grok, kimi, qwen);
-  2. free keys, only if the person set them up earlier (the course lesson «Бесплатные ключи ИИ»): NVIDIA
+  2. free keys, only if the person set them up earlier (the course lesson "Free AI keys"): NVIDIA
      (Kimi K3, GLM-5.3), Google AI Studio, Groq, OpenRouter free models - read from the environment or
      ~/.nightcall/free-keys.env; several models per key, the next one on 503/404/timeout (429: see
      limit_scope() - the free limit belongs to the project/account, not to the key);
   3. web chats in the person's own Chrome - only the sites that passed the roll call (web-mark),
      and only if the person chose `web: night` (default); with `web: morning` the question that
-     would have gone to a web chat is saved in <folder>/утро-совет.md for the morning;
+     would have gone to a web chat is saved in <folder>/morning-advice.md for the morning;
   4. Claude's own critics (a fresh sub-agent) - when nobody else is left, said out loud.
 
     python3 team.py list                              # who is installed
     python3 team.py rollcall --out seats.json         # the roll call: every CLI and key gets a test question
     python3 team.py probe [--out seats.json]          # same as rollcall (old name)
     python3 team.py web-sites                         # the web chats to check in Chrome
-    python3 team.py web-mark --seats S --site chatgpt --status жив|нужен вход|капча|не открылся
+    python3 team.py web-mark --seats S --site chatgpt --status alive|needs-sign-in|captcha|did-not-open
     python3 team.py web-when --seats S night|morning  # the person's choice: web chats at night (default) or questions saved for the morning
-    python3 team.py decide-when --seats S council|morning  # развилки человека: решает совет ИИ (по умолчанию) или всё на утро
-    python3 team.py decide --dir D --what … --why … --who … [--alt …] [--commit SHA]  # решение совета -> решения.md
-    python3 team.py hold --dir D --question … [--waits …]   # «всё на утро»: вопрос -> решения.md, задача на паузе
-    python3 team.py summary --seats seats.json        # «Ночью работают / запас / не работает / что сделать»
+    python3 team.py decide-when --seats S council|morning  # the person's forks in the road: the AI council decides (default) or everything to the morning
+    python3 team.py decide --dir D --what … --why … --who … [--alt …] [--commit SHA]  # the council's decision -> decisions.md
+    python3 team.py hold --dir D --question … [--waits …]   # "all to the morning": a question -> decisions.md, the task paused
+    python3 team.py summary --seats seats.json        # "Working tonight / reserve / not working / what to do"
     python3 team.py ask [--who codex] [--seats S] [--progress PROGRESS.md] -   # question on stdin
     python3 team.py next --seats seats.json           # the route for the next question, no call made
     python3 team.py used --seats seats.json           # who really took part (for MORNING.md)
     python3 team.py ask --blind DIR -                 # the answer goes to DIR, the name stays hidden
-    python3 team.py blind --dir DIR                   # all answers as «Ответ A / B / C», no names
+    python3 team.py blind --dir DIR                   # all answers as "Answer A / B / C", no names
     python3 team.py reveal --dir DIR                  # who was A, B, C - only AFTER the decision
 
 It never installs anything, never signs anyone in, never types a password and never spends money.
@@ -62,9 +62,9 @@ HELPERS = [
     ("alibaba", "qwen", lambda p: ["-p", p], "Qwen"),
 ]
 # Claude itself is checked in the roll call too (the night stands on it), but never asked as a helper.
-MAIN = ("anthropic", "claude", lambda p: ["-p", p], "Claude (главный)")
+MAIN = ("anthropic", "claude", lambda p: ["-p", p], "Claude (main)")
 
-# Free keys (the course lesson «Бесплатные ключи ИИ»). Only used when the person already put the key in the
+# Free keys (the course lesson "Free AI keys"). Only used when the person already put the key in the
 # environment or in ~/.nightcall/free-keys.env. OpenAI-compatible chat endpoints, free models only.
 # Models and order as in Poly A1 src/duoAuto.ts (checked live 01.10.2026): the strongest free one first -
 # NVIDIA (one build.nvidia.com key `nvapi-...`: Kimi K3 by Moonshot, then GLM-5.3 by Zhipu; ~40 requests a
@@ -72,10 +72,10 @@ MAIN = ("anthropic", "claude", lambda p: ["-p", p], "Claude (главный)")
 # free - only Flash), Groq (Llama is not free since 16.08.2026 - 404; Qwen 3.8 and gpt-oss), OpenRouter :free
 # (no free DeepSeek there any more; `openrouter/free` - any free model, the last hope).
 # Within one key: 503/404/timeout -> the next model; 401/403 (key not accepted) -> the whole key is out.
-# 429: the free limit is per project/account, not per key (checked 02.10.2026 - Google: «Rate limits are
-# applied per project, not per API key», ai.google.dev/gemini-api/docs/rate-limits; Groq: «at the
-# organization level», console.groq.com/docs/rate-limits; OpenRouter: «Making additional accounts or API
-# keys will not affect your rate limits», openrouter.ai/docs/api/reference/limits; NVIDIA: per account).
+# 429: the free limit is per project/account, not per key (checked 02.10.2026 - Google: "Rate limits are
+# applied per project, not per API key", ai.google.dev/gemini-api/docs/rate-limits; Groq: "at the
+# organization level", console.groq.com/docs/rate-limits; OpenRouter: "Making additional accounts or API
+# keys will not affect your rate limits", openrouter.ai/docs/api/reference/limits; NVIDIA: per account).
 # So a 429 never sends us to another key of the same provider: a daily limit pauses it until the end of
 # the run (Google and Groq count per model - only that model; OpenRouter's free-models-per-day covers
 # every :free model - the whole provider); a per-minute limit -> the next provider now, this one again
@@ -91,7 +91,7 @@ FREE_KEYS = [
      ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"], "Groq (Qwen 3.8, gpt-oss)", None),
     ("openrouter", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1/chat/completions",
      ["qwen/qwen3.8-27b:free", "nvidia/nemotron-3-super-120b-a12b:free", "openrouter/free"],
-     "OpenRouter (бесплатные модели)", None),
+     "OpenRouter (free models)", None),
 ]
 # HTTP codes after which the same key tries its next model (an empty answer - too).
 NEXT_MODEL = (404, 408, 429, 500, 502, 503, 504)
@@ -102,7 +102,7 @@ MAX_TOKENS = {"nvidia": 4096, "groq": 1500}
 
 def clean(text):
     """Reasoning aloud (`<think>`, also cut off), model service tokens (Kimi K3 on NVIDIA ends with
-    `<|close|>message`), and «User Safety: safe» from openrouter/free's filter model - not an answer."""
+    `<|close|>message`), and "User Safety: safe" from openrouter/free's filter model - not an answer."""
     out = re.sub(r"<think>[\s\S]*?</think>", "", text)
     out = re.sub(r"<think>[\s\S]*$", "", out)
     out = re.sub(r"(?:<\|[^|>\n]{1,40}\|>[A-Za-z_]{0,20}\s*)+$", "", out)
@@ -122,23 +122,41 @@ WEB_SITES = [
     ("qwen", "https://chat.qwen.ai/", "Qwen"),
     ("mistral", "https://chat.mistral.ai/chat", "Mistral"),
 ]
-WEB_STATES = ("жив", "нужен вход", "капча", "не открылся", "нет браузера")
+WEB_STATES = ("alive", "needs-sign-in", "captcha", "did-not-open", "no-browser")
 
-PROBE_TEXT = "Проверка связи. Ответь одним словом: ок"
+PROBE_TEXT = "Connectivity check. Answer with one word: ok"
 PROBE_TIMEOUT = int(os.environ.get("NIGHTCALL_PROBE_TIMEOUT", "90"))
 ASK_TIMEOUT = int(os.environ.get("NIGHTCALL_ASK_TIMEOUT", "900"))
 
 # From V1 real-deps.mjs QUOTA_WORDS: the allowance ran out - not a breakage, it comes back by itself.
-QUOTA = re.compile(r"\brate[ _-]?limit|\busage limit|\bquota\b|\b429\b|too many requests|limit reached|"
-                   r"out of (?:extra )?(?:usage|credits)|resource[_ ]exhausted|payment required|"
-                   r"\b402\b|balance (?:is )?exhausted|insufficient[ _](?:balance|credits?)|"
-                   r"hit your limit|лимит", re.I)
-AUTH = re.compile(r"not (?:logged|signed) in|please (?:log|sign) ?in|unauthori[sz]ed|\b401\b|"
-                  r"authenticat|login required|no credentials|auth type|api key|войдите", re.I)
+# A helper (CLI or web chat) may answer in Russian on a Russian-locale machine or a Russian-UI
+# account, not just English - kept here as one entry per language, joined into the regex below, so
+# detection stays exactly as it was before the English rename (not English-only).
+QUOTA_WORDS = {
+    "en": [r"\brate[ _-]?limit", r"\busage limit", r"\bquota\b", r"\b429\b", r"too many requests",
+           r"limit reached", r"out of (?:extra )?(?:usage|credits)", r"resource[_ ]exhausted",
+           r"payment required", r"\b402\b", r"balance (?:is )?exhausted",
+           r"insufficient[ _](?:balance|credits?)", r"hit your limit"],
+    "ru": [r"лимит"],
+}
+QUOTA = re.compile("|".join(w for words in QUOTA_WORDS.values() for w in words), re.I)
+AUTH_WORDS = {
+    "en": [r"not (?:logged|signed) in", r"please (?:log|sign) ?in", r"unauthori[sz]ed", r"\b401\b",
+           r"authenticat", r"login required", r"no credentials", r"auth type", r"api key"],
+    "ru": [r"войдите"],
+}
+AUTH = re.compile("|".join(w for words in AUTH_WORDS.values() for w in words), re.I)
 # "resets at 3am", "try again at 14:30", "until 5:00 PM", "resets in 2h 15m", "сброс в 03:00"
-RESET_AT = re.compile(r"(?:reset[s]?|try again|available|until|до|сброс\w*)\D{0,12}?"
+RESET_AT_WORDS = {"en": [r"reset[s]?", r"try again", r"available", r"until"], "ru": [r"до", r"сброс\w*"]}
+RESET_AT = re.compile(r"(?:" + "|".join(w for words in RESET_AT_WORDS.values() for w in words) + r")\D{0,12}?"
                       r"(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?", re.I)
-RESET_IN = re.compile(r"\b(?:in|через)\s+(?:(\d+)\s*(?:h|hours?|ч\w*))?\s*(?:(\d+)\s*(?:m|min\w*|мин\w*))?", re.I)
+RESET_IN_WORDS = {"en": [r"in"], "ru": [r"через"]}
+RESET_IN_HOUR_WORDS = {"en": [r"h", r"hours?"], "ru": [r"ч\w*"]}
+RESET_IN_MIN_WORDS = {"en": [r"m", r"min\w*"], "ru": [r"мин\w*"]}
+RESET_IN = re.compile(
+    r"\b(?:" + "|".join(w for words in RESET_IN_WORDS.values() for w in words) + r")\s+"
+    r"(?:(\d+)\s*(?:" + "|".join(w for words in RESET_IN_HOUR_WORDS.values() for w in words) + r"))?\s*"
+    r"(?:(\d+)\s*(?:" + "|".join(w for words in RESET_IN_MIN_WORDS.values() for w in words) + r"))?", re.I)
 
 EXTRA_PATH = ["~/.local/bin", "~/.kimi-code/bin", "/opt/homebrew/bin", "/usr/local/bin",
               "~/.npm-global/bin", "~/AppData/Roaming/npm"]
@@ -179,7 +197,7 @@ def installed(with_main=False):
         path = which(binary)
         if path:
             seen.add(family)
-            out.append({"семья": family, "программа": binary, "имя": label, "где": path})
+            out.append({"family": family, "program": binary, "name": label, "path": path})
     return out
 
 
@@ -215,37 +233,37 @@ def classify(ok_exit, text, err):
     # some programs print "usage limit" as a normal short answer with exit code 0
     if (failed and QUOTA.search(blob)) or (not failed and len(text) < 300 and QUOTA.search(text)):
         back = reset_time(blob)
-        r = {"ok": False, "статус": "лимит",
-             "почему": "у этой программы кончился запас по подписке — вернётся сам"}
+        r = {"ok": False, "status": "limit",
+             "why": "this program's subscription allowance ran out — it comes back by itself"}
         if back:
-            r["до"] = back.strftime("%Y-%m-%d %H:%M")
-            r["почему"] = f"лимит до {back.strftime('%H:%M')} — потом вернётся сам"
+            r["until"] = back.strftime("%Y-%m-%d %H:%M")
+            r["why"] = f"limit until {back.strftime('%H:%M')} — comes back by itself after that"
         return r
     if failed and AUTH.search(blob):
-        return {"ok": False, "статус": "не вошли",
-                "почему": "не видно входа в аккаунт — человеку нужно войти один раз, сейчас"}
+        return {"ok": False, "status": "not-signed-in",
+                "why": "no sign-in to the account visible — the person needs to sign in once, now"}
     if failed:
-        last = (err.splitlines() or ["пустой ответ"])[-1][:300]
-        return {"ok": False, "статус": "сбой", "почему": last}
-    return {"ok": True, "статус": "жив", "ответ": text}
+        last = (err.splitlines() or ["empty answer"])[-1][:300]
+        return {"ok": False, "status": "error", "why": last}
+    return {"ok": True, "status": "alive", "answer": text}
 
 
 def run(helper, prompt, timeout, cwd=None):
     t0 = time.time()
     try:
-        done = subprocess.run([helper["где"], *build(helper["программа"], prompt)],
+        done = subprocess.run([helper["path"], *build(helper["program"], prompt)],
                               capture_output=True, text=True, timeout=timeout,
                               env=child_env(), cwd=cwd, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
-        return {"ok": False, "статус": "молчит", "почему": f"не ответил за {timeout} с"}
+        return {"ok": False, "status": "timeout", "why": f"did not answer within {timeout}s"}
     except OSError as e:
-        return {"ok": False, "статус": "не запустился", "почему": str(e)}
+        return {"ok": False, "status": "failed-to-start", "why": str(e)}
     r = classify(done.returncode == 0, (done.stdout or "").strip(), (done.stderr or "").strip())
-    r["секунд"] = round(time.time() - t0)
+    r["seconds"] = round(time.time() - t0)
     return r
 
 
-# ---------- free keys (the course lesson «Бесплатные ключи ИИ») ----------
+# ---------- free keys (the course lesson "Free AI keys") ----------
 
 def keys_file():
     home = os.environ.get("NIGHTCALL_HOME", os.path.expanduser("~/.nightcall"))
@@ -266,7 +284,7 @@ def configured_keys():
         key = os.environ.get(var) or found.get(var)
         if key:
             url = os.environ.get("NIGHTCALL_KEY_URL_" + name.upper().replace("-", "_"), url)
-            out.append({"ключ": name, "имя": label, "адрес": url, "модели": models, "ждать": wait,
+            out.append({"key": name, "name": label, "url": url, "models": models, "wait": wait,
                         "_key": key})
     return out
 
@@ -284,12 +302,12 @@ def limit_scope(name, detail):
 def run_key_model(k, model, prompt, timeout):
     """One model of one key. Returns (result, http code or 0 for a timeout / network error)."""
     msg = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2}
-    if k["ключ"] in MAX_TOKENS:
-        msg["max_tokens"] = MAX_TOKENS[k["ключ"]]
-    if k["ключ"] == "groq" and model.startswith("qwen/"):
+    if k["key"] in MAX_TOKENS:
+        msg["max_tokens"] = MAX_TOKENS[k["key"]]
+    if k["key"] == "groq" and model.startswith("qwen/"):
         msg["reasoning_format"] = "hidden"
     body = json.dumps(msg).encode()
-    req = urllib.request.Request(k["адрес"], data=body, headers={
+    req = urllib.request.Request(k["url"], data=body, headers={
         "Content-Type": "application/json", "Authorization": "Bearer " + k["_key"]})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -301,32 +319,32 @@ def run_key_model(k, model, prompt, timeout):
         detail = e.read().decode("utf-8", "replace")[:500]
         r = classify(False, "", f"{e.code} {detail}")
         r["_detail"] = detail
-        if e.code in (401, 403) and r["статус"] == "сбой":
-            r = {"ok": False, "статус": "не вошли", "почему": "ключ не принят — проверьте его сейчас"}
+        if e.code in (401, 403) and r["status"] == "error":
+            r = {"ok": False, "status": "not-signed-in", "why": "key not accepted — check it now"}
         return r, e.code
     except Exception as e:  # noqa - network, timeout, bad JSON: all the same for the night
-        return {"ok": False, "статус": "сбой", "почему": str(e)[:300]}, 0
+        return {"ok": False, "status": "error", "why": str(e)[:300]}, 0
 
 
 def run_key(k, prompt, timeout, probe=False):
     """Every model of the key in turn: 429/503/404/timeout -> the next one; key not accepted -> stop."""
     t0 = time.time()
-    wait = min(timeout, k["ждать"]) if probe and k.get("ждать") else timeout
+    wait = min(timeout, k["wait"]) if probe and k.get("wait") else timeout
     tried = []
-    r = {"ok": False, "статус": "сбой", "почему": "нет моделей"}
-    for model in k["модели"]:
+    r = {"ok": False, "status": "error", "why": "no models"}
+    for model in k["models"]:
         r, code = run_key_model(k, model, prompt, wait)
         if r["ok"]:
-            r["модель"] = model
+            r["model"] = model
             break
-        tried.append(f"{model}: {r['почему'][:120]}")
+        tried.append(f"{model}: {r['why'][:120]}")
         if code == 429:
-            scope = limit_scope(k["ключ"], r.pop("_detail", ""))
+            scope = limit_scope(k["key"], r.pop("_detail", ""))
             if scope == "minute" and not probe:
-                r["позже"] = True  # the next provider now, this key once more at the end
+                r["later"] = True  # the next provider now, this key once more at the end
                 back = now() + datetime.timedelta(minutes=1)
-                r["до"] = back.strftime("%Y-%m-%d %H:%M")
-                r["почему"] = f"поминутный лимит — вернётся в {back:%H:%M}"
+                r["until"] = back.strftime("%Y-%m-%d %H:%M")
+                r["why"] = f"per-minute limit — comes back at {back:%H:%M}"
                 break
             if scope == "minute":
                 continue  # the roll call only asks whether the key works at all
@@ -337,17 +355,49 @@ def run_key(k, prompt, timeout, probe=False):
         if code not in NEXT_MODEL and code != 0:
             break
     if not r["ok"] and len(tried) > 1:
-        r["почему"] = "; ".join(tried)[:600]
-    r["секунд"] = round(time.time() - t0)
+        r["why"] = "; ".join(tried)[:600]
+    r["seconds"] = round(time.time() - t0)
     return r
 
 
 # ---------- seats.json ----------
 
+# Written by nightcall <= 0.3.3 (Russian field names and status words), before the English rename.
+# Read-only: old seats.json / blind-answer files made before the rename still load correctly; nothing
+# is ever written back under these old names. Covered by test_reads_legacy_russian_seats_and_blind_files.
+LEGACY_KEYS = {
+    "семья": "family", "программа": "program", "имя": "name", "где": "path", "статус": "status",
+    "почему": "why", "до": "until", "секунд": "seconds", "ответ": "answer", "участвовали": "participated",
+    "решения_когда": "decide_when", "веб_когда": "web_when", "помощники": "helpers", "ключи": "keys",
+    "веб": "web", "браузер": "browser", "ключ": "key", "адрес": "url", "модели": "models",
+    "ждать": "wait", "модель": "model", "сайт": "site", "проверено": "checked",
+    "кто": "who", "путь": "route", "не_смогли": "could_not", "дальше": "next", "запас": "reserve",
+    "утро_совет": "morning_advice", "решения": "decisions", "отменить": "undo", "пауза": "paused",
+}
+LEGACY_STATUS = {
+    "жив": "alive", "лимит": "limit", "не вошли": "not-signed-in", "сбой": "error",
+    "молчит": "timeout", "не запустился": "failed-to-start", "нет программы": "not installed",
+    "капча": "captcha", "нужен вход": "needs-sign-in", "не открылся": "did-not-open",
+    "нет браузера": "no-browser",
+}
+
+
+def _migrate(obj):
+    """Rename old Russian keys/status words to the current English ones, recursively. Read-only."""
+    if isinstance(obj, dict):
+        out = {LEGACY_KEYS.get(k, k): _migrate(v) for k, v in obj.items()}
+        if out.get("status") in LEGACY_STATUS:
+            out["status"] = LEGACY_STATUS[out["status"]]
+        return out
+    if isinstance(obj, list):
+        return [_migrate(v) for v in obj]
+    return obj
+
+
 def load_seats(path):
     if path and os.path.exists(path):
         with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
+            return _migrate(json.load(fh))
     return None
 
 
@@ -360,46 +410,46 @@ def save_seats(path, seats):
 
 def limit_passed(s):
     """A helper out of allowance whose reset time has passed is worth one more try."""
-    if s.get("статус") != "лимит" or not s.get("до"):
+    if s.get("status") != "limit" or not s.get("until"):
         return False
     try:
-        return datetime.datetime.strptime(s["до"], "%Y-%m-%d %H:%M") <= now()
+        return datetime.datetime.strptime(s["until"], "%Y-%m-%d %H:%M") <= now()
     except ValueError:
         return False
 
 
 def usable(s):
-    return s.get("статус") == "жив" or limit_passed(s)
+    return s.get("status") == "alive" or limit_passed(s)
 
 
 def web_when(seats):
-    return "morning" if (seats or {}).get("веб_когда") == "morning" else "night"
+    return "morning" if (seats or {}).get("web_when") == "morning" else "night"
 
 
 def decide_when(seats):
-    return "morning" if (seats or {}).get("решения_когда") == "morning" else "council"
+    return "morning" if (seats or {}).get("decide_when") == "morning" else "council"
 
 
 def route(seats, found=None, keys=None):
     """The order of replacement for the next question: CLI -> free key -> web -> Claude critics."""
     seats = seats or {}
     order = []
-    cli = {s["программа"]: s for s in seats.get("помощники", [])}
+    cli = {s["program"]: s for s in seats.get("helpers", [])}
     for h in (found if found is not None else installed()):
-        s = cli.get(h["программа"])
+        s = cli.get(h["program"])
         if s is None or usable(s):
-            order.append({"путь": "cli", "кто": h["программа"], "имя": h["имя"]})
-    kst = {s["ключ"]: s for s in seats.get("ключи", [])}
+            order.append({"route": "cli", "who": h["program"], "name": h["name"]})
+    kst = {s["key"]: s for s in seats.get("keys", [])}
     for k in (keys if keys is not None else configured_keys()):
-        s = kst.get(k["ключ"])
+        s = kst.get(k["key"])
         if s is None or usable(s):
-            order.append({"путь": "ключ", "кто": k["ключ"], "имя": k["имя"]})
-    for w in seats.get("веб", []):
-        if w.get("статус") == "жив" and web_when(seats) == "night":
-            order.append({"путь": "веб", "кто": w["сайт"], "имя": w.get("имя", w["сайт"]),
-                          "адрес": w.get("адрес", "")})
-    order.append({"путь": "claude", "кто": "claude-critics",
-                  "имя": "свои критики Claude (свежий субагент, без памяти о рассуждениях)"})
+            order.append({"route": "key", "who": k["key"], "name": k["name"]})
+    for w in seats.get("web", []):
+        if w.get("status") == "alive" and web_when(seats) == "night":
+            order.append({"route": "web", "who": w["site"], "name": w.get("name", w["site"]),
+                          "url": w.get("url", "")})
+    order.append({"route": "claude", "who": "claude-critics",
+                  "name": "Claude's own critics (a fresh sub-agent, with no memory of the reasoning)"})
     return order
 
 
@@ -407,15 +457,15 @@ def log_progress(path, line):
     if not path:
         return
     with open(path, "a", encoding="utf-8") as fh:
-        fh.write(f"- {hhmm()} Помощники: {line}\n")
+        fh.write(f"- {hhmm()} Helpers: {line}\n")
 
 
 def note_answer(seats, kind, who):
     if seats is None:
         return
-    seats.setdefault("участвовали", {})
+    seats.setdefault("participated", {})
     key = f"{kind}:{who}"
-    seats["участвовали"][key] = seats["участвовали"].get(key, 0) + 1
+    seats["participated"][key] = seats["participated"].get(key, 0) + 1
 
 
 # ---------- commands ----------
@@ -423,18 +473,18 @@ def note_answer(seats, kind, who):
 def cmd_list(_):
     found = installed()
     if not found:
-        print("Других ИИ-программ на этом компьютере нет. Это не тупик: запас — бесплатные ключи "
-              "(если настроены) и веб-чаты в Chrome, которые пройдут перекличку.")
+        print("No other AI programs on this computer. That's not a dead end: the reserve is free "
+              "keys (if set up) and web chats in Chrome that pass the roll call.")
         return 1
-    print(f"Нашёл {len(found)} программ(ы) других компаний:")
+    print(f"Found {len(found)} program(s) of other companies:")
     for f in found:
-        print(f"  {f['имя']} — {f['программа']} ({f['где']})")
+        print(f"  {f['name']} — {f['program']} ({f['path']})")
     return 0
 
 
 def table(rows):
     w = max([len(r[0]) for r in rows] + [10])
-    print(f"  {'Кто':<{w}}  {'Итог':<14} Подробности")
+    print(f"  {'Who':<{w}}  {'Result':<14} Details")
     for name, st, why in rows:
         print(f"  {name:<{w}}  {st:<14} {why}")
 
@@ -443,40 +493,40 @@ def cmd_rollcall(args):
     old = load_seats(args.out) or {}
     rows, cli, keys = [], [], []
     have = installed(with_main=True)
-    fams = {h["семья"] for h in have}
+    fams = {h["family"] for h in have}
     for family, binary, _, label in [MAIN] + HELPERS:
         if family not in fams:
             fams.add(family)
-            rows.append((label, "нет программы", f"{binary} не установлен — можно поставить сейчас"))
+            rows.append((label, "not installed", f"{binary} is not installed — you can install it now"))
     for h in have:
         r = run(h, PROBE_TEXT, PROBE_TIMEOUT)
-        row = {**{k: h[k] for k in ("семья", "программа", "имя")}, "статус": r["статус"],
-               "секунд": r.get("секунд"), "почему": r.get("почему", ""), "проверено": hhmm()}
-        if r.get("до"):
-            row["до"] = r["до"]
-        if h["программа"] != "claude":
+        row = {**{k: h[k] for k in ("family", "program", "name")}, "status": r["status"],
+               "seconds": r.get("seconds"), "why": r.get("why", ""), "checked": hhmm()}
+        if r.get("until"):
+            row["until"] = r["until"]
+        if h["program"] != "claude":
             cli.append(row)
-        detail = f"ответил за {r.get('секунд')} с" if r["ok"] else r.get("почему", "")
-        rows.append((h["имя"], r["статус"], detail))
+        detail = f"answered in {r.get('seconds')}s" if r["ok"] else r.get("why", "")
+        rows.append((h["name"], r["status"], detail))
     for k in configured_keys():
         r = run_key(k, PROBE_TEXT, PROBE_TIMEOUT, probe=True)
-        row = {"ключ": k["ключ"], "имя": k["имя"], "статус": r["статус"],
-               "почему": r.get("почему", ""), "проверено": hhmm()}
-        if r.get("до"):
-            row["до"] = r["до"]
+        row = {"key": k["key"], "name": k["name"], "status": r["status"],
+               "why": r.get("why", ""), "checked": hhmm()}
+        if r.get("until"):
+            row["until"] = r["until"]
         keys.append(row)
-        rows.append((f"{k['имя']} (ключ)", r["статус"],
-                     f"ответил за {r.get('секунд')} с ({r['модель']})" if r["ok"] else r.get("почему", "")))
-    print("Перекличка — программы по подписке и бесплатные ключи:")
+        rows.append((f"{k['name']} (key)", r["status"],
+                     f"answered in {r.get('seconds')}s ({r['model']})" if r["ok"] else r.get("why", "")))
+    print("Roll call — subscription programs and free keys:")
     table(rows)
-    seats = {"проверено": now().strftime("%Y-%m-%d %H:%M"), "помощники": cli, "ключи": keys,
-             "веб": old.get("веб", []), "браузер": old.get("браузер", {}),
-             "участвовали": old.get("участвовали", {}), "веб_когда": web_when(old),
-             "решения_когда": decide_when(old)}
+    seats = {"checked": now().strftime("%Y-%m-%d %H:%M"), "helpers": cli, "keys": keys,
+             "web": old.get("web", []), "browser": old.get("browser", {}),
+             "participated": old.get("participated", {}), "web_when": web_when(old),
+             "decide_when": decide_when(old)}
     if args.out:
         save_seats(args.out, seats)
-        print(f"Записал в {args.out}. Дальше — браузер (скилл team, «Перекличка браузера»), "
-              f"потом: team.py summary --seats {args.out}")
+        print(f"Saved to {args.out}. Next — the browser (skill team, \"Browser roll call\"), "
+              f"then: team.py summary --seats {args.out}")
     return 0 if any(usable(s) for s in cli + keys) else 1
 
 
@@ -487,67 +537,75 @@ def cmd_web_sites(_):
 
 
 def cmd_web_mark(args):
-    seats = load_seats(args.seats) or {"помощники": [], "ключи": [], "веб": []}
+    seats = load_seats(args.seats) or {"helpers": [], "keys": [], "web": []}
     if args.browser:
-        seats["браузер"] = {"статус": args.browser, "почему": args.why or "", "проверено": hhmm()}
+        seats["browser"] = {"status": args.browser, "why": args.why or "", "checked": hhmm()}
         save_seats(args.seats, seats)
-        print(f"Браузер: {args.browser}")
+        print(f"Browser: {args.browser}")
         return 0
     if not args.site:
-        print("нужно --site или --browser", file=sys.stderr)
+        print("need --site or --browser", file=sys.stderr)
         return 2
     known = {n: (u, l) for n, u, l in WEB_SITES}
     site = args.site.lower()
     url, label = known.get(site, (args.url or "", args.site))
-    web = [w for w in seats.setdefault("веб", []) if w["сайт"] != site]
-    prev = next((w for w in seats["веб"] if w["сайт"] == site), {})
+    web = [w for w in seats.setdefault("web", []) if w["site"] != site]
+    prev = next((w for w in seats["web"] if w["site"] == site), {})
     if args.answered:
-        note_answer(seats, "веб", site)
-        status = prev.get("статус", "жив")
+        note_answer(seats, "web", site)
+        status = prev.get("status", "alive")
     else:
         status = args.status
         if status not in WEB_STATES:
-            print(f"статус: один из {', '.join(WEB_STATES)}", file=sys.stderr)
+            print(f"status: one of {', '.join(WEB_STATES)}", file=sys.stderr)
             return 2
-    entry = {"сайт": site, "имя": label, "адрес": url or prev.get("адрес", ""), "статус": status,
-             "почему": args.why or prev.get("почему", ""), "проверено": hhmm()}
+    entry = {"site": site, "name": label, "url": url or prev.get("url", ""), "status": status,
+             "why": args.why or prev.get("why", ""), "checked": hhmm()}
     web.append(entry)
-    seats["веб"] = web
+    seats["web"] = web
     save_seats(args.seats, seats)
-    if not args.answered and prev and prev.get("статус") != status:
-        log_progress(args.progress, f"веб {label}: {prev.get('статус')} → {status}"
+    if not args.answered and prev and prev.get("status") != status:
+        log_progress(args.progress, f"web {label}: {prev.get('status')} → {status}"
                      + (f" ({args.why})" if args.why else ""))
     print(f"web-{site}: {status}")
     return 0
 
 
 def cmd_web_when(args):
-    seats = load_seats(args.seats) or {"помощники": [], "ключи": [], "веб": []}
-    seats["веб_когда"] = args.when
+    seats = load_seats(args.seats) or {"helpers": [], "keys": [], "web": []}
+    seats["web_when"] = args.when
     save_seats(args.seats, seats)
-    print("веб-чаты: " + ("ночной запас (после программ и ключей)" if args.when == "night" else
-                          "утром — ночью вопрос для них ложится в утро-совет.md"))
+    print("web chats: " + ("night reserve (after programs and keys)" if args.when == "night" else
+                          "in the morning — at night the question for them goes into morning-advice.md"))
     return 0
 
 
 def cmd_decide_when(args):
-    seats = load_seats(args.seats) or {"помощники": [], "ключи": [], "веб": []}
-    seats["решения_когда"] = args.when
+    seats = load_seats(args.seats) or {"helpers": [], "keys": [], "web": []}
+    seats["decide_when"] = args.when
     save_seats(args.seats, seats)
-    print("развилки человека: " + ("решает совет ИИ ночью, каждое решение — отдельный коммит с отменой утром"
-                                   if args.when == "council" else
-                                   "всё на утро — задача ставится на паузу с вопросом, ночь идёт по другим частям"))
+    print("human forks in the road: " + ("the AI council decides at night, each decision its own commit "
+                                   "with an undo in the morning" if args.when == "council" else
+                                   "all to the morning — the task is paused with a question, the night "
+                                   "moves on to other parts"))
     return 0
 
 
-DECISIONS_HEAD = ("# Решения ночи\n\nРазвилки, которые обычно оставляют человеку. Утром они — первыми в "
-                  "MORNING.md, раздел «Нужно Ваше решение».\n"
-                  "Отправка, публикация, оплата, удаление без возврата и вход с паролем совет не решает "
-                  "никогда — они всегда ждут утра.\n")
+DECISIONS_HEAD = ("# Decisions of the night\n\nForks in the road usually left to the person. In the "
+                  "morning they come first in MORNING.md, under \"Needs your decision\".\n"
+                  "Sending, publishing, paying, deleting without recovery, and signing in with a "
+                  "password — the council never decides these; they always wait for morning.\n")
+
+
+LEGACY_DECISIONS_NAME = "решения.md"  # written by nightcall <= 0.3.3; read-only fallback
 
 
 def decisions_file(folder):
-    path = os.path.join(folder or os.getcwd(), "решения.md")
+    folder = folder or os.getcwd()
+    path = os.path.join(folder, "decisions.md")
+    legacy = os.path.join(folder, LEGACY_DECISIONS_NAME)
+    if not os.path.exists(path) and os.path.exists(legacy):
+        return legacy  # keep appending to the file the person already has
     if not os.path.exists(path):
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(DECISIONS_HEAD)
@@ -556,86 +614,94 @@ def decisions_file(folder):
 
 def cmd_decide(args):
     path = decisions_file(args.dir)
-    undo = f"git revert {args.commit}" if args.commit else (args.undo or "вручную: вернуть, как было до решения")
+    undo = f"git revert {args.commit}" if args.commit else (args.undo or "manually: revert to how it was before the decision")
     with open(path, "a", encoding="utf-8") as fh:
-        fh.write(f"\n## {now():%d.%m %H:%M} — решил совет ИИ: {args.what}\n"
-                 f"- Почему: {args.why}\n- Кто советовал: {args.who}\n"
-                 f"- Другие варианты: {args.alt or '—'}\n- Коммит: {args.commit or '—'}\n"
-                 f"- Отменить: `{undo}`\n- Исправить так: «…» — напишите утром, Claude переделает\n")
-    print(json.dumps({"решения": path, "отменить": undo}, ensure_ascii=False))
+        fh.write(f"\n## {now():%d.%m %H:%M} — the AI council decided: {args.what}\n"
+                 f"- Why: {args.why}\n- Who advised: {args.who}\n"
+                 f"- Other options: {args.alt or '—'}\n- Commit: {args.commit or '—'}\n"
+                 f"- Undo: `{undo}`\n- Fix it like this: \"…\" — write it in the morning, Claude will redo it\n")
+    print(json.dumps({"decisions": path, "undo": undo}, ensure_ascii=False))
     return 0
 
 
 def cmd_hold(args):
     path = decisions_file(args.dir)
     with open(path, "a", encoding="utf-8") as fh:
-        fh.write(f"\n## {now():%d.%m %H:%M} — ждёт Вашего ответа: {args.question}\n"
-                 f"- Без ответа стоит: {args.waits or '—'}\n- Варианты: {args.alt or '—'}\n- Ваш ответ: \n")
-    print(json.dumps({"решения": path, "пауза": args.waits or args.question}, ensure_ascii=False))
+        fh.write(f"\n## {now():%d.%m %H:%M} — waiting for your answer: {args.question}\n"
+                 f"- On hold without an answer: {args.waits or '—'}\n- Options: {args.alt or '—'}\n- Your answer: \n")
+    print(json.dumps({"decisions": path, "paused": args.waits or args.question}, ensure_ascii=False))
     return 0
+
+
+LEGACY_MORNING_ADVICE_NAME = "утро-совет.md"  # written by nightcall <= 0.3.3; read-only fallback
 
 
 def save_for_morning(args, prompt):
     folder = args.dir or (os.path.dirname(os.path.abspath(args.seats)) if args.seats else os.getcwd())
-    path = os.path.join(folder, "утро-совет.md")
+    path = os.path.join(folder, "morning-advice.md")
+    legacy = os.path.join(folder, LEGACY_MORNING_ADVICE_NAME)
+    if not os.path.exists(path) and os.path.exists(legacy):
+        path = legacy  # keep appending to the file the person already has
     new = not os.path.exists(path)
     with open(path, "a", encoding="utf-8") as fh:
         if new:
-            fh.write("# Вопросы для веб-чатов — утром\n\nВы выбрали «web: morning»: ночью эти вопросы не "
-                     "ушли в веб-чаты. Утром их можно задать ChatGPT, Gemini, Kimi… по одному.\n")
+            fh.write("# Questions for web chats — in the morning\n\nYou chose \"web: morning\": at night "
+                     "these questions did not go to web chats. In the morning you can ask ChatGPT, "
+                     "Gemini, Kimi… one at a time.\n")
         fh.write(f"\n## {now():%d.%m %H:%M}\n\n{prompt.strip()}\n")
     return path
 
 
 def summarize(seats):
     work, reserve, broken, todo = [], [], [], []
-    for s in seats.get("помощники", []):
-        name = s["имя"]
-        if s["статус"] == "жив":
+    for s in seats.get("helpers", []):
+        name = s["name"]
+        if s["status"] == "alive":
             work.append(name)
-        elif s["статус"] == "лимит":
-            broken.append(f"{name} — лимит" + (f" до {s['до'][-5:]}" if s.get("до") else ""))
-            if s.get("до"):
-                reserve.append(f"{name} (вернётся после {s['до'][-5:]})")
-        elif s["статус"] == "не вошли":
-            broken.append(f"{name} — не вошли")
-            todo.append(f"войти в {s['программа']}: запустите её в терминале один раз и войдите")
+        elif s["status"] == "limit":
+            broken.append(f"{name} — limit" + (f" until {s['until'][-5:]}" if s.get("until") else ""))
+            if s.get("until"):
+                reserve.append(f"{name} (comes back after {s['until'][-5:]})")
+        elif s["status"] == "not-signed-in":
+            broken.append(f"{name} — not signed in")
+            todo.append(f"sign in to {s['program']}: run it once in the terminal and sign in")
         else:
-            broken.append(f"{name} — {s['статус']}")
-    for k in seats.get("ключи", []):
-        (reserve if k["статус"] == "жив" else broken).append(
-            f"{k['имя']} (ключ)" + ("" if k["статус"] == "жив" else f" — {k['статус']}"))
-    br = seats.get("браузер", {})
-    if br and br.get("статус") != "жив":
-        broken.append(f"браузер Chrome — {br.get('статус')}")
-        todo.append("браузер: поставить/включить расширение Claude in Chrome и нажать «Разрешить» сейчас")
-    for w in seats.get("веб", []):
-        if w["статус"] == "жив":
-            reserve.append(f"веб {w['имя']}" + (" (утром)" if web_when(seats) == "morning" else ""))
+            broken.append(f"{name} — {s['status']}")
+    for k in seats.get("keys", []):
+        (reserve if k["status"] == "alive" else broken).append(
+            f"{k['name']} (key)" + ("" if k["status"] == "alive" else f" — {k['status']}"))
+    br = seats.get("browser", {})
+    if br and br.get("status") != "alive":
+        broken.append(f"Chrome browser — {br.get('status')}")
+        todo.append("browser: install/enable the Claude in Chrome extension and click \"Allow\" now")
+    for w in seats.get("web", []):
+        if w["status"] == "alive":
+            reserve.append(f"web {w['name']}" + (" (in the morning)" if web_when(seats) == "morning" else ""))
         else:
-            broken.append(f"веб {w['имя']} — {w['статус']}")
-            if w["статус"] in ("нужен вход", "капча"):
-                todo.append(f"{w['имя']}: откройте {w.get('адрес') or w['сайт']} и войдите / пройдите проверку")
+            broken.append(f"web {w['name']} — {w['status']}")
+            if w["status"] in ("needs-sign-in", "captcha"):
+                todo.append(f"{w['name']}: open {w.get('url') or w['site']} and sign in / pass the check")
     if not work and not reserve:
-        todo.insert(0, "нет ни одного живого помощника другой компании — поставьте и войдите хотя бы "
-                       "в одну программу (codex, gemini/agy, kimi, grok, qwen) или войдите в 2–3 веб-чата")
+        todo.insert(0, "no other company's helper is alive at all — install and sign in to at least "
+                       "one program (codex, gemini/agy, kimi, grok, qwen) or sign in to 2–3 web chats")
     return work, reserve, broken, todo
 
 
 def cmd_summary(args):
     seats = load_seats(args.seats) or {}
     work, reserve, broken, todo = summarize(seats)
-    print("Итог переклички:")
-    print("  Ночью работают: " + (", ".join(work) or "—"))
-    print("  Запас: " + (", ".join(reserve) or "—"))
-    print("  Не работает: " + (", ".join(broken) or "—"))
-    print("  Развилки человека: " + ("решает совет ИИ, утром — список с отменой каждого решения"
-                                     if decide_when(seats) == "council" else "всё на утро — задачи с вопросом ждут Вас"))
+    print("Roll call summary:")
+    print("  Working tonight: " + (", ".join(work) or "—"))
+    print("  Reserve: " + (", ".join(reserve) or "—"))
+    print("  Not working: " + (", ".join(broken) or "—"))
+    print("  Human forks in the road: " + ("the AI council decides, in the morning — a list with an undo "
+                                     "for each decision" if decide_when(seats) == "council" else
+                                     "all to the morning — tasks with a question wait for you"))
     if not work and not reserve:
-        print("  Честно: живых помощников других компаний нет — ночь пройдёт только со своими "
-              "критиками Claude (свежий субагент). Лучше исправить до ухода:")
+        print("  Honestly: no other company's helper is alive — the night will run only on Claude's "
+              "own critics (a fresh sub-agent). Better to fix this before you leave:")
     if todo:
-        print("  Что сделать сейчас, пока вы рядом:")
+        print("  What to do now, while you're still here:")
         for t in todo:
             print(f"    - {t}")
     return 0 if (work or reserve) else 1
@@ -648,12 +714,12 @@ def cmd_next(args):
 
 def cmd_used(args):
     seats = load_seats(args.seats) or {}
-    used = seats.get("участвовали", {})
+    used = seats.get("participated", {})
     if not used:
-        print("Помощники других компаний этой ночью не отвечали — работали только свои критики Claude.")
+        print("No other company's helpers answered tonight — only Claude's own critics worked.")
         return 1
     for k, n in sorted(used.items(), key=lambda x: -x[1]):
-        print(f"  {k} — ответов: {n}")
+        print(f"  {k} — answers: {n}")
     return 0
 
 
@@ -661,10 +727,10 @@ def cmd_ask(args):
     found = installed()
     seats = load_seats(args.seats)
     keys = configured_keys()
-    order = [x for x in route(seats, found, keys) if x["путь"] in ("cli", "ключ")]
+    order = [x for x in route(seats, found, keys) if x["route"] in ("cli", "key")]
     if args.who:
-        first = [x for x in order if args.who.lower() == x["кто"] or
-                 any(h["семья"] == args.who.lower() and h["программа"] == x["кто"] for h in found)]
+        first = [x for x in order if args.who.lower() == x["who"] or
+                 any(h["family"] == args.who.lower() and h["program"] == x["who"] for h in found)]
         order = first + [x for x in order if x not in first]
     if not args.fallback:
         order = order[:1]
@@ -672,90 +738,98 @@ def cmd_ask(args):
     tried = []
     again = set()
     for x in order:
-        if x["путь"] == "cli":
-            h = next(h for h in found if h["программа"] == x["кто"])
+        if x["route"] == "cli":
+            h = next(h for h in found if h["program"] == x["who"])
             r = run(h, prompt, ASK_TIMEOUT, cwd=args.dir)
         else:
-            k = next(k for k in keys if k["ключ"] == x["кто"])
+            k = next(k for k in keys if k["key"] == x["who"])
             r = run_key(k, prompt, ASK_TIMEOUT)
-            if r.pop("позже", False) and x["кто"] not in again:
-                again.add(x["кто"])
+            if r.pop("later", False) and x["who"] not in again:
+                again.add(x["who"])
                 order.append(x)  # per-minute limit: back at the end of the line, once
         if r["ok"]:
             if tried:
-                log_progress(args.progress, "; ".join(f"{t['кто']} — {t['почему']}" for t in tried)
-                             + f"; заменён: {x['имя']}")
+                log_progress(args.progress, "; ".join(f"{t['who']} — {t['why']}" for t in tried)
+                             + f"; replaced: {x['name']}")
             mark(args.seats, x, r)
             if args.blind:
                 # Blind comparison (owner, 01.10.2026): a judge AI leans to the answer that sounds like
-                # itself, so the answer is saved with its name and Claude sees it only as «Ответ A».
+                # itself, so the answer is saved with its name and Claude sees it only as "Answer A".
                 saved = save_blind(args.blind, x, r)
-                print(json.dumps({"ok": True, "сохранено": saved, "не_смогли": len(tried),
-                                  "дальше": f"team.py blind --dir {args.blind}"}, ensure_ascii=False))
+                print(json.dumps({"ok": True, "saved": saved, "could_not": len(tried),
+                                  "next": f"team.py blind --dir {args.blind}"}, ensure_ascii=False))
                 return 0
-            print(json.dumps({"ok": True, "кто": x["имя"], "путь": x["путь"], "программа": x["кто"],
-                              "секунд": r.get("секунд"), "не_смогли": tried, "ответ": r["ответ"]},
+            print(json.dumps({"ok": True, "who": x["name"], "route": x["route"], "program": x["who"],
+                              "seconds": r.get("seconds"), "could_not": tried, "answer": r["answer"]},
                              ensure_ascii=False))
             return 0
-        tried.append({"кто": x["имя"], "статус": r["статус"], "почему": r["почему"]})
+        tried.append({"who": x["name"], "status": r["status"], "why": r["why"]})
         mark(args.seats, x, r)
     now_seats = load_seats(args.seats)
-    rest = [x for x in route(now_seats, found, keys) if x["путь"] in ("веб", "claude")]
+    rest = [x for x in route(now_seats, found, keys) if x["route"] in ("web", "claude")]
     nxt = rest[0]
     morning = None
-    if web_when(now_seats) == "morning" and any(w.get("статус") == "жив" for w in (now_seats or {}).get("веб", [])):
+    if web_when(now_seats) == "morning" and any(w.get("status") == "alive" for w in (now_seats or {}).get("web", [])):
         morning = save_for_morning(args, prompt)
-        log_progress(args.progress, f"вопрос для веб-чатов отложен на утро: {morning}")
+        log_progress(args.progress, f"question for web chats saved for the morning: {morning}")
     if tried:
-        log_progress(args.progress, "; ".join(f"{t['кто']} — {t['почему']}" for t in tried)
-                     + f"; дальше: {nxt['имя']}")
-    print(json.dumps({"ok": False, "не_смогли": tried,
-                      "почему": "ни одна программа и ни один ключ не ответили" if tried else
-                      "живых программ и ключей других компаний нет",
-                      "дальше": nxt, "запас": rest, "утро_совет": morning}, ensure_ascii=False))
+        log_progress(args.progress, "; ".join(f"{t['who']} — {t['why']}" for t in tried)
+                     + f"; next: {nxt['name']}")
+    print(json.dumps({"ok": False, "could_not": tried,
+                      "why": "no program and no key answered" if tried else
+                      "no other company's program or key is alive",
+                      "next": nxt, "reserve": rest, "morning_advice": morning}, ensure_ascii=False))
     return 1
 
 
 # ---------- blind comparison: answers without names until the decision ----------
 
-BLIND_KEY = ".кто-есть-кто.json"
+BLIND_KEY = ".who-is-who.json"
+LEGACY_BLIND_KEY = ".кто-есть-кто.json"          # written by nightcall <= 0.3.3; read-only fallback
+LEGACY_ANSWER_PREFIX = "ответ-"                  # same; new answers are always saved as "answer-N.json"
 
 
 def save_blind(folder, x, r):
     os.makedirs(folder, exist_ok=True)
-    n = len([f for f in os.listdir(folder) if f.startswith("ответ-") and f.endswith(".json")]) + 1
-    path = os.path.join(folder, f"ответ-{n}.json")
+    n = len([f for f in os.listdir(folder)
+             if (f.startswith("answer-") or f.startswith(LEGACY_ANSWER_PREFIX)) and f.endswith(".json")]) + 1
+    path = os.path.join(folder, f"answer-{n}.json")
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump({"кто": x["имя"], "путь": x["путь"], "ответ": r["ответ"]}, fh, ensure_ascii=False, indent=1)
+        json.dump({"who": x["name"], "route": x["route"], "answer": r["answer"]}, fh, ensure_ascii=False, indent=1)
     return path
 
 
 def blind_answers(folder):
-    """Every saved answer as «Ответ A / B / C» in a random order; who is who goes to a file Claude
-    does not read until it has decided."""
+    """Every saved answer as "Answer A / B / C" in a random order; who is who goes to a file Claude
+    does not read until it has decided. Also picks up answer-*.json files saved by nightcall <= 0.3.3
+    under their old name (ответ-*.json, old Russian field names) - read-only."""
     import random
-    files = sorted(f for f in os.listdir(folder) if f.startswith("ответ-") and f.endswith(".json"))
-    answers = [json.load(open(os.path.join(folder, f), encoding="utf-8")) for f in files]
+    files = sorted(f for f in os.listdir(folder)
+                    if (f.startswith("answer-") or f.startswith(LEGACY_ANSWER_PREFIX)) and f.endswith(".json"))
+    answers = [_migrate(json.load(open(os.path.join(folder, f), encoding="utf-8"))) for f in files]
     random.shuffle(answers)
     letters = [chr(ord("A") + i) if i < 26 else f"A{i}" for i in range(len(answers))]
     with open(os.path.join(folder, BLIND_KEY), "w", encoding="utf-8") as fh:
-        json.dump({l: a["кто"] for l, a in zip(letters, answers)}, fh, ensure_ascii=False, indent=1)
-    return "\n\n".join(f"## Ответ {l}\n\n{a['ответ'].strip()}" for l, a in zip(letters, answers))
+        json.dump({l: a["who"] for l, a in zip(letters, answers)}, fh, ensure_ascii=False, indent=1)
+    return "\n\n".join(f"## Answer {l}\n\n{a['answer'].strip()}" for l, a in zip(letters, answers))
 
 
 def cmd_blind(args):
     if not os.path.isdir(args.dir):
-        print(f"нет папки {args.dir}")
+        print(f"no folder {args.dir}")
         return 1
     print(blind_answers(args.dir))
-    print("\nИмена скрыты. Сначала решение, потом: team.py reveal --dir " + args.dir)
+    print("\nNames are hidden. Decide first, then: team.py reveal --dir " + args.dir)
     return 0
 
 
 def cmd_reveal(args):
     path = os.path.join(args.dir, BLIND_KEY)
+    legacy = os.path.join(args.dir, LEGACY_BLIND_KEY)
+    if not os.path.exists(path) and os.path.exists(legacy):
+        path = legacy
     if not os.path.exists(path):
-        print("ещё не было team.py blind")
+        print("team.py blind hasn't run yet")
         return 1
     print(json.dumps(json.load(open(path, encoding="utf-8")), ensure_ascii=False))
     return 0
@@ -765,72 +839,72 @@ def mark(path, x, result):
     seats = load_seats(path)
     if not seats:
         return
-    group, field = ("помощники", "программа") if x["путь"] == "cli" else ("ключи", "ключ")
+    group, field = ("helpers", "program") if x["route"] == "cli" else ("keys", "key")
     for s in seats.get(group, []):
-        if s.get(field) == x["кто"]:
-            s["статус"], s["почему"], s["проверено"] = result["статус"], result.get("почему", ""), hhmm()
-            if result.get("до"):
-                s["до"] = result["до"]
+        if s.get(field) == x["who"]:
+            s["status"], s["why"], s["checked"] = result["status"], result.get("why", ""), hhmm()
+            if result.get("until"):
+                s["until"] = result["until"]
             elif result["ok"]:
-                s.pop("до", None)
+                s.pop("until", None)
     if result["ok"]:
-        note_answer(seats, x["путь"], x["кто"])
+        note_answer(seats, x["route"], x["who"])
     save_seats(path, seats)
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Nightcall: помощники-ИИ других компаний.")
+    ap = argparse.ArgumentParser(description="Nightcall: other companies' AI helpers.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("list")
     for name in ("rollcall", "probe"):
         p = sub.add_parser(name)
-        p.add_argument("--out", help="куда записать, кто жив (seats.json в папке задачи)")
+        p.add_argument("--out", help="where to save who's alive (seats.json in the task folder)")
     sub.add_parser("web-sites")
     w = sub.add_parser("web-mark")
     w.add_argument("--seats", required=True)
     w.add_argument("--site", help="chatgpt, gemini, kimi, deepseek, meta, grok, qwen, mistral …")
     w.add_argument("--url")
-    w.add_argument("--status", default="жив", help=" | ".join(WEB_STATES))
+    w.add_argument("--status", default="alive", help=" | ".join(WEB_STATES))
     w.add_argument("--why", default="")
-    w.add_argument("--browser", help="состояние самого браузера: жив | нет расширения | нет разрешения")
-    w.add_argument("--answered", action="store_true", help="сайт ответил на вопрос ночью (для утра)")
-    w.add_argument("--progress", help="PROGRESS.md: записать смену состояния")
+    w.add_argument("--browser", help="the browser's own state: alive | no-extension | no-permission")
+    w.add_argument("--answered", action="store_true", help="the site answered a question at night (for the morning)")
+    w.add_argument("--progress", help="PROGRESS.md: log the change of state")
     ww = sub.add_parser("web-when")
     ww.add_argument("--seats", required=True)
-    ww.add_argument("when", choices=["night", "morning"], help="night — веб-чаты ночной запас; morning — вопросы утром")
+    ww.add_argument("when", choices=["night", "morning"], help="night — web chats are the night reserve; morning — questions in the morning")
     dw = sub.add_parser("decide-when")
     dw.add_argument("--seats", required=True)
     dw.add_argument("when", choices=["council", "morning"],
-                    help="council — развилки решает совет ИИ (по умолчанию); morning — всё на утро")
+                    help="council — the AI council decides forks in the road (default); morning — all to the morning")
     d = sub.add_parser("decide")
-    d.add_argument("--dir", help="папка задачи (там решения.md)")
+    d.add_argument("--dir", help="the task folder (decisions.md lives there)")
     d.add_argument("--what", required=True)
     d.add_argument("--why", required=True)
-    d.add_argument("--who", required=True, help="кто советовал: codex, grok, свои критики…")
+    d.add_argument("--who", required=True, help="who advised: codex, grok, its own critics…")
     d.add_argument("--alt", default="")
-    d.add_argument("--commit", default="", help="коммит этого решения — утром git revert <коммит>")
-    d.add_argument("--undo", default="", help="как отменить, если не git")
+    d.add_argument("--commit", default="", help="this decision's commit — in the morning: git revert <commit>")
+    d.add_argument("--undo", default="", help="how to undo it, if not git")
     h = sub.add_parser("hold")
     h.add_argument("--dir")
     h.add_argument("--question", required=True)
-    h.add_argument("--waits", default="", help="что стоит без ответа")
+    h.add_argument("--waits", default="", help="what is on hold without an answer")
     h.add_argument("--alt", default="")
     for name in ("summary", "next", "used"):
         p = sub.add_parser(name)
         p.add_argument("--seats", required=True)
     a = sub.add_parser("ask")
-    a.add_argument("prompt", help="вопрос или - для чтения со стандартного ввода")
-    a.add_argument("--who", help="кого спросить первым: codex, agy, gemini, grok, kimi, qwen, openrouter…")
-    a.add_argument("--seats", help="seats.json из переклички: мёртвых пропускаем, новых мёртвых отмечаем")
-    a.add_argument("--progress", help="PROGRESS.md: каждая замена — строкой")
-    a.add_argument("--dir", help="папка, которую помощник может читать (его рабочая папка)")
+    a.add_argument("prompt", help="the question, or - to read it from standard input")
+    a.add_argument("--who", help="who to ask first: codex, agy, gemini, grok, kimi, qwen, openrouter…")
+    a.add_argument("--seats", help="seats.json from the roll call: dead ones are skipped, newly dead ones are marked")
+    a.add_argument("--progress", help="PROGRESS.md: every replacement, as a line")
+    a.add_argument("--dir", help="a folder the helper may read (its working folder)")
     a.add_argument("--blind", metavar="DIR",
-                   help="слепое сравнение: ответ — в DIR без имени на экране; потом blind и reveal")
+                   help="blind comparison: the answer goes to DIR with no name on screen; then blind and reveal")
     a.add_argument("--no-fallback", dest="fallback", action="store_false",
-                   help="не переходить к следующему, если первый не ответил")
+                   help="do not move on to the next one if the first does not answer")
     for name in ("blind", "reveal"):
         p = sub.add_parser(name)
-        p.add_argument("--dir", required=True, help="папка ответов из ask --blind")
+        p.add_argument("--dir", required=True, help="the answers folder from ask --blind")
     args = ap.parse_args(argv)
     return {"list": cmd_list, "rollcall": cmd_rollcall, "probe": cmd_rollcall,
             "web-sites": cmd_web_sites, "web-mark": cmd_web_mark, "web-when": cmd_web_when,

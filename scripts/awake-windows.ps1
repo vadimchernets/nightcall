@@ -35,21 +35,21 @@ function Get-Running {
 
 if ($Status) {
   $r = Get-Running
-  if ($r) { Write-Output ("ВКЛЮЧЕНО: компьютер не заснёт до {0} (процесс {1})." -f (Get-Content $untilFile), $r.Id); exit 0 }
-  Write-Output 'ВЫКЛЮЧЕНО: компьютер засыпает как обычно.'; exit 1
+  if ($r) { Write-Output ("ON: the computer will not sleep until {0} (process {1})." -f (Get-Content $untilFile), $r.Id); exit 0 }
+  Write-Output 'OFF: the computer sleeps as usual.'; exit 1
 }
 
 if ($Stop) {
   $r = Get-Running
-  if ($r) { Stop-Process -Id $r.Id -Force; Write-Output 'ВЫКЛЮЧЕНО: кофеин снят, компьютер снова засыпает как обычно.' }
-  else { Write-Output 'Кофеин и так не был включён.' }
+  if ($r) { Stop-Process -Id $r.Id -Force; Write-Output 'OFF: caffeine removed, the computer sleeps as usual again.' }
+  else { Write-Output "Caffeine wasn't on anyway." }
   Remove-Item $pidFile, $untilFile -ErrorAction SilentlyContinue
   exit 0
 }
 
 $secs = $Hours * 3600 + $Minutes * 60
-if ($secs -le 0) { Write-Output 'Укажите срок: -Hours 8, -Hours 12 или -Minutes 30.'; exit 2 }
-if ($secs -gt 86400) { Write-Output 'Больше 24 часов не ставлю — поставьте заново утром.'; exit 2 }
+if ($secs -le 0) { Write-Output 'Give a duration: -Hours 8, -Hours 12 or -Minutes 30.'; exit 2 }
+if ($secs -gt 86400) { Write-Output "I won't set more than 24 hours — set it again in the morning."; exit 2 }
 
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $old = Get-Running
@@ -72,18 +72,18 @@ $exe = (Get-Process -Id $PID).Path
 $p = Start-Process -FilePath $exe -ArgumentList @('-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', $encoded) -WindowStyle Hidden -PassThru
 
 Start-Sleep -Milliseconds 800
-if ($p.HasExited) { Write-Output 'НЕ ВКЛЮЧИЛОСЬ: фоновый процесс сразу закрылся.'; exit 4 }
+if ($p.HasExited) { Write-Output 'DID NOT TURN ON: the background process closed right away.'; exit 4 }
 Set-Content -Path $pidFile -Value $p.Id
 $until = (Get-Date).AddSeconds($secs).ToString('HH:mm dd.MM')
 Set-Content -Path $untilFile -Value $until
 
-Write-Output ("ВКЛЮЧЕНО: компьютер не заснёт до {0} ({1} ч {2} мин), потом кофеин снимется сам." -f $until, [math]::Floor($secs / 3600), [math]::Floor(($secs % 3600) / 60))
-Write-Output ("  фоновый процесс {0}, флаги {1}" -f $p.Id, $(if ($ScreenOff) { "система (экран может гаснуть)" } else { "система + экран" }))
+Write-Output ("ON: the computer will not sleep until {0} ({1}h {2}m), then caffeine comes off by itself." -f $until, [math]::Floor($secs / 3600), [math]::Floor(($secs % 3600) / 60))
+Write-Output ("  background process {0}, flags {1}" -f $p.Id, $(if ($ScreenOff) { "system (the screen may go dark)" } else { "system + screen" }))
 try {
   $bat = Get-CimInstance -ClassName Win32_Battery -ErrorAction SilentlyContinue
-  if ($bat -and $bat.BatteryStatus -ne 2) { Write-Output '  ВНИМАНИЕ: сейчас от батареи — подключите зарядку.' }
-  else { Write-Output '  питание: от сети — хорошо.' }
+  if ($bat -and $bat.BatteryStatus -ne 2) { Write-Output '  WARNING: currently on battery — plug in the charger.' }
+  else { Write-Output '  power: on mains — good.' }
 } catch { }
-Write-Output '  Крышку ноутбука НЕ закрывайте (или в «Электропитание → Действие при закрытии крышки» выберите «Ничего не делать» для питания от сети).'
-Write-Output '  Обновления Windows могут перезагрузить ночью: Параметры → Центр обновления → Приостановить на 1 неделю или «Период активности» на ночь.'
-Write-Output ('  Снять раньше: powershell -NoProfile -ExecutionPolicy Bypass -File "{0}" -Stop' -f $PSCommandPath)
+Write-Output '  Do NOT close the laptop lid (or in "Power Options -> Lid close action" choose "Do nothing" for plugged-in power).'
+Write-Output '  Windows updates can reboot overnight: Settings -> Windows Update -> "Pause for 1 week", or set an "active hours" window covering the night.'
+Write-Output ('  Turn off earlier: powershell -NoProfile -ExecutionPolicy Bypass -File "{0}" -Stop' -f $PSCommandPath)

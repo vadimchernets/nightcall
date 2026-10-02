@@ -28,10 +28,10 @@ running_pid() {
 
 cmd_status() {
   if pid=$(running_pid); then
-    say "ВКЛЮЧЕНО: компьютер не заснёт до $(cat "$UNTIL_FILE" 2>/dev/null) ($(cat "$HOW_FILE" 2>/dev/null), процесс $pid)."
+    say "ON: the computer will not sleep until $(cat "$UNTIL_FILE" 2>/dev/null) ($(cat "$HOW_FILE" 2>/dev/null), process $pid)."
     return 0
   fi
-  say "ВЫКЛЮЧЕНО: компьютер засыпает как обычно."
+  say "OFF: the computer sleeps as usual."
   return 1
 }
 
@@ -41,10 +41,10 @@ cmd_stop() {
     kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null
     pkill -P "$pid" 2>/dev/null || true
     rm -f "$STATE" "$UNTIL_FILE" "$HOW_FILE"
-    say "ВЫКЛЮЧЕНО: кофеин снят, компьютер снова засыпает как обычно."
+    say "OFF: caffeine removed, the computer sleeps as usual again."
   else
     rm -f "$STATE" "$UNTIL_FILE" "$HOW_FILE"
-    say "Кофеин и так не был включён."
+    say "Caffeine wasn't on anyway."
   fi
 }
 
@@ -67,13 +67,13 @@ start_bg() {  # run "$@" detached in its own process group, print its pid
 }
 
 cmd_start() {
-  secs=$(to_seconds "$1") || { say "Не понял срок «$1». Пример: 8, 12, 10h или 30m."; exit 2; }
-  [ "$secs" -gt 0 ] || { say "Срок должен быть больше нуля."; exit 2; }
-  if [ "$secs" -gt $((24 * 3600)) ]; then say "Больше 24 часов не ставлю — поставьте заново утром."; exit 2; fi
+  secs=$(to_seconds "$1") || { say "Didn't understand the duration \"$1\". Example: 8, 12, 10h or 30m."; exit 2; }
+  [ "$secs" -gt 0 ] || { say "The duration must be greater than zero."; exit 2; }
+  if [ "$secs" -gt $((24 * 3600)) ]; then say "I won't set more than 24 hours — set it again in the morning."; exit 2; fi
   mkdir -p "$STATE_DIR"
   if running_pid >/dev/null; then cmd_stop >/dev/null; fi
 
-  why="Nightcall: агент работает ночью"
+  why="Nightcall: the agent is working overnight"
   pid=""; how=""
   if command -v systemd-inhibit >/dev/null 2>&1; then
     # with the lid first; some desktops refuse the lid lock, then without it
@@ -101,22 +101,22 @@ cmd_start() {
       [ \"\$left\" -gt 0 ] || break
       sleep \"\$left\"
     done")
-    how="запасной путь: сброс заставки каждые 50 с (сон по таймеру он держит не везде)"
+    how="fallback: resetting the screensaver every 50s (it does not hold timer-based sleep everywhere)"
   fi
 
   printf '%s' "$pid" > "$STATE"
   printf '%s' "$how" > "$HOW_FILE"
   until_h=$(date -d "+${secs} seconds" '+%H:%M %d.%m' 2>/dev/null || date '+%H:%M')
   printf '%s' "$until_h" > "$UNTIL_FILE"
-  say "ВКЛЮЧЕНО: компьютер не заснёт до $until_h ($((secs / 3600)) ч $(((secs % 3600) / 60)) мин), потом кофеин снимется сам."
-  say "  чем: $how, процесс $pid"
-  case "$how" in *handle-lid-switch*) say "  Крышку можно закрыть — lid-lock взят. Надёжнее всё же оставить открытой.";;
-    *) say "  Крышку ноутбука НЕ закрывайте: закрытая крышка усыпит компьютер.";; esac
+  say "ON: the computer will not sleep until $until_h ($((secs / 3600))h $(((secs % 3600) / 60))m), then caffeine comes off by itself."
+  say "  how: $how, process $pid"
+  case "$how" in *handle-lid-switch*) say "  The lid can be closed — the lid lock is held. Still more reliable left open.";;
+    *) say "  Do NOT close the laptop lid: a closed lid will put the computer to sleep.";; esac
   on_ac=""
   for f in /sys/class/power_supply/*/online; do [ -f "$f" ] && [ "$(cat "$f")" = "1" ] && on_ac=1; done
   ls /sys/class/power_supply/BAT* >/dev/null 2>&1 || on_ac=1   # no battery = desktop
-  if [ -n "$on_ac" ]; then say "  питание: от сети — хорошо."; else say "  ВНИМАНИЕ: сейчас от батареи — подключите зарядку."; fi
-  say "  Снять раньше: bash \"$0\" stop"
+  if [ -n "$on_ac" ]; then say "  power: on mains — good."; else say "  WARNING: currently on battery — plug in the charger."; fi
+  say "  Turn off earlier: bash \"$0\" stop"
 }
 
 case "${1:-}" in

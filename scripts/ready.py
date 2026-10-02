@@ -4,13 +4,12 @@
 
     python3 ready.py [--dir <task folder>]
 
-Each line is ОК, НЕ (fix it now, before you go to bed) or СЛЕДИТЕ (cannot be read from here - one
+Each line is OK, NOT OK (fix it now, before you go to bed) or WATCH (cannot be read from here - one
 thing for the person to look at). Nothing is changed on the computer: this only reads.
 """
 
 import argparse
 import glob
-import json
 import os
 import platform
 import shutil
@@ -38,25 +37,26 @@ def check_power():
     if SYS == "Darwin":
         out = sh(["pmset", "-g", "batt"])
         if "AC Power" in out:
-            row("ОК", "Питание от сети.")
+            row("OK", "Power is on mains.")
         elif out:
-            row("НЕ", "Ноутбук на батарее — за ночь она сядет, и работа встанет.", "Подключите зарядку.")
+            row("NOT OK", "The laptop is on battery — it will run down overnight and the work will stop.",
+                "Plug in the charger.")
         return
     if SYS == "Linux":
         bats = glob.glob("/sys/class/power_supply/BAT*")
         online = any(open(f).read().strip() == "1" for f in glob.glob("/sys/class/power_supply/*/online"))
         if not bats or online:
-            row("ОК", "Питание от сети.")
+            row("OK", "Power is on mains.")
         else:
-            row("НЕ", "Ноутбук на батарее.", "Подключите зарядку.")
+            row("NOT OK", "The laptop is on battery.", "Plug in the charger.")
         return
     if SYS == "Windows":
         out = sh(["powershell", "-NoProfile", "-Command",
                   "(Get-CimInstance Win32_Battery).BatteryStatus"])
         if not out.strip() or out.strip() == "2":
-            row("ОК", "Питание от сети.")
+            row("OK", "Power is on mains.")
         else:
-            row("НЕ", "Ноутбук на батарее.", "Подключите зарядку.")
+            row("NOT OK", "The laptop is on battery.", "Plug in the charger.")
 
 
 def check_awake():
@@ -65,12 +65,12 @@ def check_awake():
         home = os.path.join(os.environ.get("LOCALAPPDATA", home), "nightcall")
     until = next((open(f, encoding="utf-8").read().strip() for f in glob.glob(os.path.join(home, "awake-*.until"))), "")
     if until:
-        row("ОК", f"Кофеин включён до {until}.")
+        row("OK", f"Caffeine is on until {until}.")
     else:
-        row("НЕ", "Кофеин не включён — компьютер уснёт, как только вы отойдёте.",
-            "Скилл /nightcall:awake 8 (или 12).")
-    row("СЛЕДИТЕ", "Крышка ноутбука: закрытая крышка усыпляет компьютер, кофеин этого не отменяет.",
-        "Оставьте крышку открытой; экран можно просто убавить до минимума.")
+        row("NOT OK", "Caffeine is not on — the computer will sleep as soon as you step away.",
+            "Skill /nightcall:awake 8 (or 12).")
+    row("WATCH", "The laptop lid: a closed lid puts the computer to sleep, and caffeine does not override that.",
+        "Leave the lid open; you can just turn the screen brightness all the way down.")
 
 
 def check_updates():
@@ -78,83 +78,87 @@ def check_updates():
         v = sh(["defaults", "read", "/Library/Preferences/com.apple.SoftwareUpdate",
                 "AutomaticallyInstallMacOSUpdates"]).strip()
         if v == "1":
-            row("НЕ", "macOS сама ставит обновления и может перезагрузиться ночью.",
-                "Настройки → Основные → Обновление ПО → (i) у «Автообновления» → выключите "
-                "«Установка обновлений macOS» на эту ночь.")
+            row("NOT OK", "macOS installs updates by itself and may reboot overnight.",
+                "System Settings → General → Software Update → (i) next to \"Automatic Updates\" → "
+                "turn off \"Install macOS updates\" for tonight.")
         else:
-            row("ОК", "macOS не перезагрузится ночью ради обновлений сама.")
+            row("OK", "macOS will not reboot overnight on its own for updates.")
     elif SYS == "Windows":
-        row("СЛЕДИТЕ", "Windows Update умеет перезагружать ночью, и кофеин это не отменяет.",
-            "Параметры → Центр обновления Windows → «Приостановить на 1 неделю».")
+        row("WATCH", "Windows Update can reboot overnight, and caffeine does not override that.",
+            "Settings → Windows Update → \"Pause for 1 week\".")
     elif SYS == "Linux":
         auto = any("Automatic-Reboot \"true\"" in open(f, errors="ignore").read()
                    for f in glob.glob("/etc/apt/apt.conf.d/*unattended*"))
         if auto:
-            row("НЕ", "Автообновления настроены на перезагрузку.", "Отложите их на эту ночь.")
+            row("NOT OK", "Automatic updates are set to reboot.", "Postpone them for tonight.")
         else:
-            row("ОК", "Автоперезагрузки после обновлений не видно.")
+            row("OK", "No automatic reboot after updates in sight.")
 
 
 def check_network():
     try:
         socket.create_connection(("api.anthropic.com", 443), timeout=6).close()
-        row("ОК", "Интернет есть, Claude достижим.")
+        row("OK", "Internet is up, Claude is reachable.")
     except OSError:
-        row("НЕ", "Нет связи с Claude — ночью он ничего не сделает.", "Проверьте Wi-Fi; лучше кабель.")
-    row("СЛЕДИТЕ", "Wi-Fi может отключаться в сне и при смене сети.",
-        "Не уносите компьютер; VPN, который рвётся, лучше выключить на ночь.")
+        row("NOT OK", "No connection to Claude — it won't be able to do anything tonight.",
+            "Check Wi-Fi; a cable is better.")
+    row("WATCH", "Wi-Fi can drop during sleep and when the network changes.",
+        "Don't take the computer anywhere; a VPN that drops is better turned off for the night.")
 
 
 def check_disk(folder):
     free = shutil.disk_usage(folder or os.path.expanduser("~")).free / 1e9
     if free < 5:
-        row("НЕ", f"Свободно всего {free:.1f} ГБ.", "Освободите место — ночью файлы растут.")
+        row("NOT OK", f"Only {free:.1f} GB free.", "Free up space — files grow overnight.")
     else:
-        row("ОК", f"Места на диске: {free:.0f} ГБ.")
+        row("OK", f"Disk space: {free:.0f} GB.")
 
 
 def check_claude():
     if shutil.which("claude"):
-        row("ОК", "Claude Code установлен.")
+        row("OK", "Claude Code is installed.")
     else:
-        row("НЕ", "Команда claude не найдена в этом окне.", "Запускайте ночь из Claude Code.")
-    row("СЛЕДИТЕ", "Разрешения: ночью некому нажать «Да» — один вопрос остановит всю ночь.",
-        "Перед уходом: Shift+Tab до режима auto (или accept edits), либо ночной цикл "
-        "scripts/night-loop.sh. Проверьте на одном шаге, что вопросов не всплывает.")
-    row("СЛЕДИТЕ", "Лимит подписки Claude: когда он кончается, работа ждёт до сброса.",
-        "Наберите /usage и посмотрите, сколько осталось. Ночной цикл сам подождёт сброса и продолжит.")
+        row("NOT OK", "The claude command is not found in this window.", "Run the night from Claude Code.")
+    row("WATCH", "Permissions: nobody is here to click \"Yes\" at night — one question stops the whole night.",
+        "Before you leave: Shift+Tab to auto mode (or accept edits), or the night loop "
+        "scripts/night-loop.sh. Check on one step that no question pops up.")
+    row("WATCH", "Claude's subscription limit: once it runs out, the work waits until it resets.",
+        "Type /usage and see how much is left. The night loop waits out the reset and continues by itself.")
 
 
 def check_team(folder):
     out = sh([sys.executable, os.path.join(HERE, "team.py"), "list"], timeout=20)
     n = sum(1 for line in out.splitlines() if line.startswith("  "))
     if n:
-        row("ОК", f"Других ИИ-программ по подписке найдено: {n}. Живы ли — покажет перекличка.")
+        row("OK", f"Other AI subscription programs found: {n}. Whether they're alive — the roll call will show.")
     else:
-        row("СЛЕДИТЕ", "Других ИИ-программ по подписке нет — запас: бесплатные ключи и веб-чаты в Chrome.",
-            "Поставьте и войдите хотя бы в одну (codex, gemini/agy, kimi, grok, qwen) — или войдите "
-            "в Chrome в 2–3 веб-чата (ChatGPT, Gemini, Kimi, DeepSeek, Meta AI).")
+        row("WATCH", "No other AI subscription programs — the reserve is free keys and web chats in Chrome.",
+            "Install and sign in to at least one (codex, gemini/agy, kimi, grok, qwen) — or sign in "
+            "to 2–3 web chats in Chrome (ChatGPT, Gemini, Kimi, DeepSeek, Meta AI).")
     seats = os.path.join(folder, "seats.json") if folder else ""
     if seats and os.path.exists(seats):
+        sys.path.insert(0, HERE)
+        import team as T  # reuse load_seats(): also migrates seats.json written before the English rename
         try:
-            data = json.load(open(seats, encoding="utf-8"))
+            data = T.load_seats(seats) or {}
         except ValueError:
             data = {}
-        alive = [s for s in data.get("помощники", []) + data.get("ключи", []) if s.get("статус") == "жив"]
-        web = [w for w in data.get("веб", []) if w.get("статус") == "жив"]
+        alive = [s for s in data.get("helpers", []) + data.get("keys", []) if s.get("status") == "alive"]
+        web = [w for w in data.get("web", []) if w.get("status") == "alive"]
         if alive or web:
-            row("ОК", f"Перекличка пройдена: живых программ/ключей {len(alive)}, веб-чатов в запасе {len(web)}.")
+            row("OK", f"Roll call done: {len(alive)} program(s)/key(s) alive, {len(web)} web chat(s) in reserve.")
         else:
-            row("НЕ", "Перекличка: ни одного живого помощника другой компании — ночь пройдёт только "
-                "со своими критиками Claude.", "Войдите в программу или веб-чат сейчас и повторите перекличку.")
-        if data.get("веб_когда") == "morning":
-            row("ОК", "Веб-чаты: утром (web: morning) — ночью вопрос для них ляжет в утро-совет.md.")
-        if not data.get("веб"):
-            row("СЛЕДИТЕ", "Браузер ещё не проверен: веб-чаты — запас на случай лимитов.",
-                "Скилл /nightcall:ready, шаг «Перекличка браузера» — пока вы рядом.")
+            row("NOT OK", "Roll call: not one other company's helper is alive — the night will run only "
+                "on Claude's own critics.", "Sign in to a program or web chat now and repeat the roll call.")
+        if data.get("web_when") == "morning":
+            row("OK", "Web chats: in the morning (web: morning) — at night the question for them goes "
+                "into morning-advice.md.")
+        if not data.get("web"):
+            row("WATCH", "The browser hasn't been checked yet: web chats are the reserve for when limits hit.",
+                "Skill /nightcall:ready, step \"Browser roll call\" — while you're still here.")
     else:
-        row("СЛЕДИТЕ", "Переклички ещё не было: живость помощников не проверена.",
-            "Скилл /nightcall:ready делает её сам: программы, ключи и веб-чаты в Chrome.")
+        row("WATCH", "No roll call yet: the helpers' being alive hasn't been checked.",
+            "Skill /nightcall:ready does it by itself: programs, keys and web chats in Chrome.")
 
 
 def check_folder(folder):
@@ -164,32 +168,32 @@ def check_folder(folder):
         return
     tags = sh(["git", "-C", folder, "tag", "--list", "nightcall-before-*"]).split()
     if tags:
-        row("ОК", f"Точка возврата: есть (git-тег {sorted(tags)[-1]}) — утром всё можно откатить.")
+        row("OK", f"Restore point: present (git tag {sorted(tags)[-1]}) — everything can be rolled back in the morning.")
     elif os.path.isdir(folder) and sh(["git", "-C", folder, "rev-parse", "--git-dir"]).strip():
-        row("ОК", "Точка возврата: будет создана — night.py begin сделает коммит и тег «перед ночью».")
+        row("OK", "Restore point: will be created — night.py begin will make a \"before the night\" commit and tag.")
     else:
-        row("ОК", "Точка возврата: будет создана — night.py begin сделает git init и коммит «перед ночью».")
+        row("OK", "Restore point: will be created — night.py begin will run git init and a \"before the night\" commit.")
     claude_md = os.path.join(folder, "CLAUDE.md")
     try:
         fenced = "nightcall:fence" in open(claude_md, encoding="utf-8").read()
     except OSError:
         fenced = False
-    row("ОК", "Забор: " + ("есть — в CLAUDE.md папки «работать только в этой папке»." if fenced else
-                                "будет вписан в CLAUDE.md папки при night.py begin."))
+    row("OK", "Fence: " + ("present — the folder's CLAUDE.md says \"work only inside this folder\"." if fenced else
+                                "will be written into the folder's CLAUDE.md by night.py begin."))
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dir", help="папка задачи")
+    ap.add_argument("--dir", help="the task folder")
     a = ap.parse_args()
     check_power(); check_awake(); check_updates(); check_network()
     check_disk(a.dir); check_claude(); check_team(a.dir); check_folder(a.dir)
-    print("Перед ночью:")
+    print("Before the night:")
     for state, what, do in rows:
         print(f"  {state:<8} {what}" + (f"\n           → {do}" if do else ""))
-    bad = sum(1 for r in rows if r[0] == "НЕ")
-    print(f"Итого: {bad} НЕ, {sum(1 for r in rows if r[0] == 'СЛЕДИТЕ')} СЛЕДИТЕ, "
-          f"{sum(1 for r in rows if r[0] == 'ОК')} ОК.")
+    bad = sum(1 for r in rows if r[0] == "NOT OK")
+    print(f"Total: {bad} NOT OK, {sum(1 for r in rows if r[0] == 'WATCH')} WATCH, "
+          f"{sum(1 for r in rows if r[0] == 'OK')} OK.")
     return 1 if bad else 0
 
 

@@ -9,7 +9,7 @@
 
 `begin` creates the task folder with TASK.md (the person's words, as given), a PLAN.md and a
 PROGRESS.md skeleton if they are not there yet, and ALWAYS puts the night on a safety net, without
-asking: a restore point (no git -> `git init` + a commit «перед ночью»; git -> a commit of what is
+asking: a restore point (no git -> `git init` + a commit "before the night"; git -> a commit of what is
 not committed + a tag `nightcall-before-<time>`) and the fence rule in the folder's CLAUDE.md:
 work only inside this folder (course step "Fence and time machine"). `arm` - said when the person has left - writes
 ~/.nightcall/active.json, the switch the Stop hook reads to keep the session working until the end
@@ -30,40 +30,40 @@ import sys
 HOME = os.environ.get("NIGHTCALL_HOME", os.path.expanduser("~/.nightcall"))
 ACTIVE = os.path.join(HOME, "active.json")
 
-PLAN = """# План на ночь
+PLAN = """# Plan for the night
 
-Задание — в TASK.md. Каждый шаг — одно проверяемое дело. «Готово» — это проверка, а не ощущение.
+The task is in TASK.md. Each step is one checkable thing. "Done" is a check, not a feeling.
 
-| # | Шаг | Готово, когда… | Статус |
+| # | Step | Done when… | Status |
 |---|-----|----------------|--------|
-| 1 |     |                | ждёт   |
+| 1 |     |                | waiting |
 """
 
-PROGRESS = """# Ход ночи
+PROGRESS = """# Night progress
 
-Начато: {start}. Конец не позже: {until}.
+Started: {start}. End no later than: {until}.
 
-## Журнал
-<!-- после каждого шага: время (date) · шаг · что сделано · как проверено · что дальше -->
+## Journal
+<!-- after each step: time (date) · step · what was done · how it was checked · what's next -->
 
-## Помощники
-<!-- кто из других ИИ жив, кто выпал и почему, кем заменён -->
+## Helpers
+<!-- which other AIs are alive, which dropped out and why, who replaced them -->
 
-## Проверить утром
-<!-- спорные решения, принятые без человека, с тем значением, которое выбрано -->
+## Check in the morning
+<!-- disputed decisions made without the person, with the value that was chosen -->
 """
 
 
 FENCE_MARK = "<!-- nightcall:fence -->"
 FENCE = """
 {mark}
-## Ночь nightcall: забор (шаг курса «Забор и машина времени»)
+## Nightcall night: the fence (course step "Fence and time machine")
 
-- Работай ТОЛЬКО внутри этой папки: `{folder}`. Ничего не создавай, не меняй и не удаляй за её
-  пределами (домашняя папка, рабочий стол, системные файлы, другие проекты).
-- Нужен файл снаружи — скопируй его внутрь и работай с копией.
-- Ничего не удаляй насовсем: переноси в `_убрано/` или полагайся на коммит.
-- Точка возврата перед ночью: {restore}. Откатить всё: `{undo}`.
+- Work ONLY inside this folder: `{folder}`. Don't create, change or delete anything outside it
+  (the home folder, the desktop, system files, other projects).
+- Need a file from outside — copy it in and work with the copy.
+- Don't delete anything for good: move it to `_removed/` or rely on the commit.
+- Restore point before the night: {restore}. Roll everything back: `{undo}`.
 """
 
 
@@ -95,18 +95,18 @@ def restore_point(folder, now):
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         if not os.path.exists(dest):
             shutil.copytree(folder, dest, symlinks=True)
-        return f"копия папки {dest} (git на компьютере нет)", f"скопируйте {dest} обратно"
+        return f"a copy of the folder at {dest} (no git on this computer)", f"copy {dest} back"
     if code != 0:
         git(folder, "init", "-q")
     ident = git_ident(folder)
     git(folder, "add", "-A", ".")
-    git(folder, *ident, "commit", "-q", "--allow-empty", "-m", "nightcall: перед ночью")
+    git(folder, *ident, "commit", "-q", "--allow-empty", "-m", "nightcall: before the night")
     git(folder, "tag", "-f", tag)
     top = git(folder, "rev-parse", "--show-toplevel")[1]
     if os.path.realpath(top) == os.path.realpath(folder):
-        return f"git-тег {tag}", f"git -C \"{folder}\" reset --hard {tag}"
+        return f"git tag {tag}", f"git -C \"{folder}\" reset --hard {tag}"
     # the folder is a part of a bigger repository: roll back only this folder
-    return f"git-тег {tag}", f"git -C \"{folder}\" checkout {tag} -- ."
+    return f"git tag {tag}", f"git -C \"{folder}\" checkout {tag} -- ."
 
 
 def fence(folder, restore, undo):
@@ -127,7 +127,7 @@ def cmd_begin(a):
     made = []
     if task and not os.path.exists(os.path.join(folder, "TASK.md")):
         with open(os.path.join(folder, "TASK.md"), "w", encoding="utf-8") as fh:
-            fh.write("# Задание на ночь (словами человека)\n\n" + task + "\n")
+            fh.write("# Task for the night (in the person's own words)\n\n" + task + "\n")
         made.append("TASK.md")
     for name, body in (("PLAN.md", PLAN), ("PROGRESS.md", PROGRESS)):
         p = os.path.join(folder, name)
@@ -141,18 +141,18 @@ def cmd_begin(a):
     fence(folder, restore, undo)
     if restore.startswith("git"):
         git(folder, "add", "--", "CLAUDE.md")
-        git(folder, *git_ident(folder), "commit", "-q", "-m", "nightcall: забор на ночь", "--", "CLAUDE.md")
-    print(f"Папка ночи готова: {folder}")
-    print(f"  создано: {', '.join(made) or 'ничего, файлы уже были'}")
-    print(f"  точка возврата: {restore}. Откатить: {undo}")
-    print("  забор: в CLAUDE.md папки — «работать только в этой папке»")
+        git(folder, *git_ident(folder), "commit", "-q", "-m", "nightcall: fence for the night", "--", "CLAUDE.md")
+    print(f"Night folder ready: {folder}")
+    print(f"  created: {', '.join(made) or 'nothing, the files were already there'}")
+    print(f"  restore point: {restore}. Undo: {undo}")
+    print("  fence: in the folder's CLAUDE.md — \"work only inside this folder\"")
     return 0
 
 
 def cmd_arm(a):
     folder = os.path.abspath(os.path.expanduser(a.dir))
     if not os.path.exists(os.path.join(folder, "PLAN.md")):
-        print(f"В {folder} нет PLAN.md — сначала begin и план.")
+        print(f"No PLAN.md in {folder} — run begin and make a plan first.")
         return 2
     now = datetime.datetime.now().replace(second=0, microsecond=0)
     until = now + datetime.timedelta(hours=a.hours)
@@ -161,8 +161,8 @@ def cmd_arm(a):
         json.dump({"folder": folder, "started": now.isoformat(timespec="minutes"),
                    "until": until.isoformat(timespec="minutes"), "max_rounds": a.max_rounds,
                    "rounds": 0, "session": clean_session(a.session)}, fh, ensure_ascii=False, indent=2)
-    print(f"Ночь идёт: {folder} до {until:%H:%M %d.%m}. Сессия сама возвращается к следующему шагу.")
-    print(f"  Выключатель: файл STOP в этой папке или `python3 {os.path.abspath(__file__)} end`.")
+    print(f"The night is on: {folder} until {until:%H:%M %d.%m}. The session returns to the next step by itself.")
+    print(f"  Off switch: a file named STOP in this folder, or `python3 {os.path.abspath(__file__)} end`.")
     return 0
 
 
@@ -176,23 +176,23 @@ def cmd_status(_):
     try:
         run = json.load(open(ACTIVE, encoding="utf-8"))
     except Exception:
-        print("Ночной работы сейчас нет.")
+        print("No night run is active right now.")
         return 1
-    print(f"Ночная работа идёт: {run['folder']} до {run['until']}, кругов {run.get('rounds', 0)}.")
+    print(f"Night run active: {run['folder']} until {run['until']}, rounds {run.get('rounds', 0)}.")
     return 0
 
 
 def cmd_end(_):
     if os.path.exists(ACTIVE):
         os.remove(ACTIVE)
-        print("Ночь закрыта: сессия больше не возвращается к работе сама.")
+        print("Night closed: the session no longer returns to work by itself.")
     else:
-        print("Ночной работы и так не было.")
+        print("There was no night run to close.")
     return 0
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Nightcall: открыть и закрыть ночь.")
+    ap = argparse.ArgumentParser(description="Nightcall: open and close the night.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("begin")
     b.add_argument("--dir", required=True)
@@ -201,7 +201,7 @@ def main(argv=None):
     r.add_argument("--dir", required=True)
     r.add_argument("--hours", type=float, default=8)
     r.add_argument("--max-rounds", type=int, default=200)
-    r.add_argument("--session", default="", help="session_id окна, которое начало ночь (${CLAUDE_SESSION_ID})")
+    r.add_argument("--session", default="", help="session_id of the window that started the night (${CLAUDE_SESSION_ID})")
     sub.add_parser("status")
     sub.add_parser("end")
     a = ap.parse_args(argv)

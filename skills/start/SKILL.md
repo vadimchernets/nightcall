@@ -1,6 +1,6 @@
 ---
 name: start
-description: Put Claude to work for the whole night on the person's task - plan and progress file in a task folder, the computer kept awake for 8 or 12 hours, work step by step with self-critique, other AIs of other companies brought in (their own subscription programs first, free browser chats if none), dead helpers replaced, and a morning report of what was done, what was not and what to check. Use when the person says "работай ночью", "поработай, пока я сплю", "ночная работа", "work overnight", "keep going while I sleep", "до утра", or gives a big task and says they are leaving for the night.
+description: Put Claude to work for the whole night on the person's task - plan and progress file in a task folder, the computer kept awake for 8 or 12 hours, work step by step with self-critique, other AIs of other companies brought in (their own subscription programs first, free browser chats if none), dead helpers replaced, and a morning report of what was done, what was not and what to check. Use when the person says "work overnight", "work while I sleep", "night shift", "keep going while I sleep", "until morning" (in any language), or gives a big task and says they are leaving for the night.
 argument-hint: "<the task in your own words> [8|12 hours]"
 allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*) Bash(date*) Bash(git *) Read Write Edit Glob Grep ToolSearch
 ---
@@ -16,19 +16,20 @@ setting. Everything that needs them happens in the next five minutes, before the
 ## 0. Before they leave — five minutes, in this order
 
 0. **The roll call — first, while the person is surely here.** It is the part that needs their
-   hands: a sign-in, a click on «Разрешить» in Chrome, a captcha. Choose the folder name now (step 3:
-   `ночь-<date>-<short-name>`) and do `/nightcall:team` §1 with `<seats>` = `<folder>/seats.json`:
-   a) `team.py rollcall` — a table of every program by subscription and free key: жив / лимит (до
-   ЧЧ:ММ) / не вошли / нет программы; b) Chrome — Claude in Chrome connected, a new tab opens, each
+   hands: a sign-in, a click on "Allow" in Chrome, a captcha. Choose the folder name now (step 3:
+   `night-<date>-<short-name>`) and do `/nightcall:team` §1 with `<seats>` = `<folder>/seats.json`:
+   a) `team.py rollcall` — a table of every program by subscription and free key: alive / limit (until
+   HH:MM) / not-signed-in / not installed; b) Chrome — Claude in Chrome connected, a new tab opens, each
    web chat (ChatGPT, Gemini, Kimi, DeepSeek, Meta AI…) checked one at a time for an input field and
-   a test answer; any «Разрешить» — the person presses it now; c) `team.py summary` — «Ночью
-   работают: …; запас: …; не работает: … — что сделать сейчас». No live helper of another company →
+   a test answer; any "Allow" — the person presses it now; c) `team.py summary` — "Working
+   tonight: …; reserve: …; not working: … — what to do now". No live helper of another company →
    say honestly the night will run with Claude's own critics only, and offer one fix before they go.
    d) one choice in the same breath: web chats `night` (default, the reserve) or `morning`
    (`team.py web-when`, `/nightcall:team` §1c).
-   e) and one more, with its default said out loud: «Развилки, которые обычно оставляют Вам, —
-   решает совет ИИ (по умолчанию: ночь не встаёт, утром список с отменой каждого решения) или всё
-   на утро (задача с вопросом ждёт Вас, ночь идёт по другим частям)?» Save it:
+   e) and one more, with its default said out loud: "Forks in the road usually left to you — does
+   the AI council decide (default: the night doesn't stop, in the morning a list with an undo for
+   each decision), or all to the morning (a task with a question waits for you, the night moves on
+   to other parts)?" Save it:
    `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" decide-when --seats "<folder>/seats.json" council|morning`.
    Silence means `council`. In both modes send, publish, pay, delete-for-good and sign in with a
    password are never decided at night — they always wait for the morning.
@@ -36,35 +37,35 @@ setting. Everything that needs them happens in the next five minutes, before the
 1. **The task in one sentence and the finish line.** Repeat the task back in one sentence and say
    what "done by morning" means — a thing that can be checked (a file exists, tests pass, a document
    of N sections, a list of 30 sources). If the person's words already say it, do not ask; state it.
-   If something is truly unclear, ask **one** question with your default in it: «Если не ответите
-   за 2 минуты — делаю так: …». Silence means go.
+   If something is truly unclear, ask **one** question with your default in it: "If you don't answer
+   in 2 minutes, I'll do it this way: …". Silence means go.
 
 2. **How long.** 8 or 12 hours, or their own number. Default 8. Say until what time: `date`.
 
 3. **The folder.** The folder where the work is (the one the person named, or the project folder);
-   a new task with no folder yet gets `ночь-<date>-<short-name>`. Open the night:
+   a new task with no folder yet gets `night-<date>-<short-name>`. Open the night:
 
    ```
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/night.py" begin --dir "<folder>" --hours <H>
    ```
    with the person's task **word for word** on standard input — it becomes `TASK.md`, next to an
    empty `PLAN.md` and `PROGRESS.md`. `begin` **always** puts the night on a safety net, for any task,
-   with no question to the person: a restore point (not under git → `git init` + a commit «перед
-   ночью»; under git → a commit of what is not committed + a tag `nightcall-before-<time>`) and the
-   fence rule of the course's fence step («Fence and time machine») in the folder's `CLAUDE.md` — work only inside this folder. Say the restore
+   with no question to the person: a restore point (not under git → `git init` + a commit "before
+   the night"; under git → a commit of what is not committed + a tag `nightcall-before-<time>`) and the
+   fence rule of the course's fence step ("Fence and time machine") in the folder's `CLAUDE.md` — work only inside this folder. Say the restore
    point in one line. From here on, all work happens inside this folder; anything needed from
    outside is copied in. Write the plan now (§1), while the person can still glance at it.
    One commit per step lets the person undo any step in the morning.
 
 4. **The checklist.** Run `/nightcall:ready` (or `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ready.py" --dir "<folder>"`).
-   Every НЕ is fixed **now**, with the person, while they are still here. Show СЛЕДИТЕ lines
+   Every NOT OK is fixed **now**, with the person, while they are still here. Show WATCH lines
    as one short list.
 
 5. **Coffee.** Keep the computer awake: `/nightcall:awake <H>` — Mac, Linux or Windows is picked
    for you. It switches itself off at the end time.
 
-6. **Permissions — the one that kills most nights.** Tell the person, plainly: «Один вопрос
-   „разрешить?“ ночью остановит всю работу до утра.» Ask them to switch this window to a mode that
+6. **Permissions — the one that kills most nights.** Tell the person, plainly: "One 'allow?'
+   question at night will stop all the work until morning." Ask them to switch this window to a mode that
    does not stop to ask (Shift+Tab until **auto** mode, or **accept edits**), and then do one real
    step of the plan in front of them to prove no question pops up. For the sturdiest night — a fresh
    Claude for every step that survives a closed window and waits out the subscription limit — offer
@@ -96,8 +97,8 @@ around them. A step that cannot be checked is two steps or a wrong step. The pla
 the night you may **add** steps and **mark** steps as skipped with a reason, but never quietly
 change what "done" means (Anthropic, "Effective harnesses for long-running agents").
 
-For a large plan, show it to one live helper (§3) with the question «Чего не хватает в этом плане и
-какой шаг самый рискованный?» and fold in what holds up. One round, not a debate.
+For a large plan, show it to one live helper (§3) with the question "What's missing from this plan,
+and which step is riskiest?" and fold in what holds up. One round, not a debate.
 
 ## 2. Every step — the same loop
 
@@ -115,25 +116,25 @@ For a large plan, show it to one live helper (§3) with the question «Чего 
    next. If the folder is under git: one commit per step, the message says what and why.
 7. Mark the step in `PLAN.md` and go straight to the next one.
 
-**Stuck rule.** Three honest attempts at a step without success → mark it «не вышло: <why>», write
-what you tried, and move on to the next step. One stuck step must not eat the night.
+**Stuck rule.** Three honest attempts at a step without success → mark it "did not work out: <why>",
+write what you tried, and move on to the next step. One stuck step must not eat the night.
 
 **Nobody to ask — a decision that would normally be the person's.** The person chose before
-leaving (§0e, `решения_когда` in `seats.json`). Never stop the night and wait for an answer.
+leaving (§0e, `decide_when` in `seats.json`). Never stop the night and wait for an answer.
 
 - `council` (default) — ask the council (§3: other companies first, then Claude's own critics; the
   question as a question, with the options), decide, and make the decision **its own commit** — a
-  restore point for that one decision. **Weigh blind**: every helper with `ask --blind "<folder>/совет-N"`,
-  then `team.py blind --dir "<folder>/совет-N"` shows them as «Ответ A / B / C» without names — an AI
+  restore point for that one decision. **Weigh blind**: every helper with `ask --blind "<folder>/council-N"`,
+  then `team.py blind --dir "<folder>/council-N"` shows them as "Answer A / B / C" without names — an AI
   judge leans to the answer like its own. Decide first; only then `team.py reveal --dir …` for `--who`. Then write it down:
-  `team.py decide --dir "<folder>" --what "…" --why "…" --who "codex, grok, свои критики" --alt "…" --commit <hash>`
-  → `решения.md`, with `git revert <hash>` ready for the morning.
+  `team.py decide --dir "<folder>" --what "…" --why "…" --who "codex, grok, its own critics" --alt "…" --commit <hash>`
+  → `decisions.md`, with `git revert <hash>` ready for the morning.
 - `morning` — do not decide: `team.py hold --dir "<folder>" --question "…" --waits "…" --alt "…"`,
-  mark that step «ждёт ответа» in `PLAN.md` and go on with the other steps or another part.
+  mark that step "waiting for an answer" in `PLAN.md` and go on with the other steps or another part.
 - Never decided by the council, in either mode: sending, publishing, paying, deleting with no way
   back, signing in with a password — always `hold`.
 
-**Only inside the task folder** (the fence in its `CLAUDE.md`). **Nothing is deleted at night** that cannot be brought back: move to a `_убрано/` folder instead,
+**Only inside the task folder** (the fence in its `CLAUDE.md`). **Nothing is deleted at night** that cannot be brought back: move to a `_removed/` folder instead,
 or rely on the git commit.
 
 ## 3. Other AIs — helpers, not a decoration
@@ -142,9 +143,9 @@ Use them where a second head changes the result: the plan, a hard decision, a fi
 the text or code, facts you are not sure of. Not on every sentence.
 
 **The order of replacement is fixed**: a live program by subscription → at a limit or failure the
-next program of another company → free keys (if set up, the course lesson «Бесплатные ключи ИИ»: NVIDIA first) → a web chat that passed
+next program of another company → free keys (if set up, the course lesson "Free AI keys": NVIDIA first) → a web chat that passed
 the roll call (with `web: night`, the default; with `web: morning` the question waits in
-`утро-совет.md`) → Claude's own critics (a fresh sub-agent), said out loud.
+`morning-advice.md`) → Claude's own critics (a fresh sub-agent), said out loud.
 
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" ask --seats "<folder>/seats.json" --progress "<folder>/PROGRESS.md" --dir "<folder>" -
@@ -154,17 +155,17 @@ answer into it: an AI shown an answer agrees with it. Give it the paths of the f
 their contents, when they are in `<folder>`.
 
 The script walks down that order: the one that failed is marked in `seats.json` so the night does
-not wait on it again, a program at its limit is marked «лимит до ЧЧ:ММ» and comes back by itself
-after that time, and every replacement is a line in `PROGRESS.md` → «Помощники». Every two or three
+not wait on it again, a program at its limit is marked "limit until HH:MM" and comes back by itself
+after that time, and every replacement is a line in `PROGRESS.md` → "Helpers". Every two or three
 hours re-run `team.py rollcall` — allowances come back.
 
-**Programs and keys all out — a web chat.** The answer names it in `дальше` — only a site that
+**Programs and keys all out — a web chat.** The answer names it in `next` — only a site that
 passed the roll call. Follow `/nightcall:team` §3: one site at a time in its own tab, never a
-password; a sign-in screen or captcha → mark it «нужен вход» / «капча» and go on to the next one.
+password; a sign-in screen or captcha → mark it "needs-sign-in" / "captcha" and go on to the next one.
 Nothing left → Claude's own critics, written as such.
 
 **Write down every answer that changed something** in `PROGRESS.md`, with who said it. A helper that
-did not answer is written down too: «Grok — лимит до 04:00, заменён Kimi». A pair that did not happen
+did not answer is written down too: "Grok — limit until 04:00, replaced by Kimi". A pair that did not happen
 is said out loud, never faked by asking yourself twice.
 
 ## 4. Keeping the night going

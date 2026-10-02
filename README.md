@@ -7,7 +7,7 @@ works step by step, checks and criticises its own work, asks other AIs you alrea
 second head — and in the morning you read what was done, what was not, and what to look at first.
 
 ```
-/nightcall:start Разбери все мои заметки в папке «Идеи», собери из них план книги на 12 глав и черновик первой главы. 8 часов.
+/nightcall:start Go through all my notes in the "Ideas" folder, build a 12-chapter book outline from them, and draft the first chapter. 8 hours.
 ```
 
 ## Install
@@ -60,49 +60,49 @@ Claude is the main agent. Helpers are AIs of **other companies** you already hav
 **The roll call — before you leave** (`/nightcall:ready`, and the first step of `/nightcall:start`):
 
 1. every program by subscription — `codex` (ChatGPT), `agy`/`gemini`, `grok`, `kimi`, `qwen` — and
-   every free key you set up (the course lesson «Бесплатные ключи ИИ»: NVIDIA — Kimi K3 and GLM-5.3 on one key,
+   every free key you set up (the course lesson "Free AI keys": NVIDIA — Kimi K3 and GLM-5.3 on one key,
    Google AI Studio, Groq, OpenRouter) gets a test question — several models per key, the next one on
-   429/503/404/timeout: **жив / лимит (до ЧЧ:ММ) / не вошли / нет программы**;
+   429/503/404/timeout: **alive / limit (until HH:MM) / not-signed-in / not installed**;
 2. Chrome: Claude in Chrome connected, a tab opens, and each web chat you use (ChatGPT, Gemini,
    Kimi, DeepSeek, Meta AI…) shows an input field and answers a test question — or is marked
-   «нужен вход» / «капча». Anything to allow or sign in, you do now, not at night;
-3. «Ночью работают: …; запас: …; не работает: … — что сделать сейчас».
+   "needs-sign-in" / "captcha". Anything to allow or sign in, you do now, not at night;
+3. "Working tonight: …; reserve: …; not working: … — what to do now".
 
 **At night** the order is fixed: a live program → the next program → free keys → a web chat that
 passed the roll call (one site at a time, no passwords) → Claude's own critics. Every replacement is
 a line in `PROGRESS.md`; a program at its limit comes back after the reset time; `MORNING.md` says
 who really took part. Your one choice at the roll call: `web: night` (default — web chats are the
 night reserve) or `web: morning` (`team.py web-when --seats seats.json morning`) — then a question
-meant for a web chat is saved in `утро-совет.md` for the morning.
+meant for a web chat is saved in `morning-advice.md` for the morning.
 
-**Decisions that are usually yours** — one more choice before you leave, default «решает совет ИИ»:
+**Decisions that are usually yours** — one more choice before you leave, default "the AI council decides":
 
 - `council` (default) — Claude asks the live AIs (other companies, then its own critics), decides,
-  and the night does not stop. It weighs the answers **blind** — «Ответ A / B / C», no company or
+  and the night does not stop. It weighs the answers **blind** — "Answer A / B / C", no company or
   model names (`team.py ask --blind DIR`, then `team.py blind --dir DIR`); names come out only after
-  the decision (`team.py reveal --dir DIR`): a judge AI leans to the answer that sounds like itself. Each such decision is its own commit and an entry in `решения.md`
-  (what, why, who advised, the other options); in the morning «Нужно Ваше решение» lists them, each
-  with its own `git revert <commit>` and «исправить так: …».
+  the decision (`team.py reveal --dir DIR`): a judge AI leans to the answer that sounds like itself. Each such decision is its own commit and an entry in `decisions.md`
+  (what, why, who advised, the other options); in the morning **"Needs your decision"** lists them, each
+  with its own `git revert <commit>` and "fix it like this: …".
 - `morning` — such a fork is not decided: the step waits with a question, the night goes on with
   other steps; in the morning you answer, and `/nightcall:morning` gives one line to finish:
-  `/nightcall:start продолжение: …; ответы: …`.
+  `/nightcall:start continuation: …; answers: …`.
 
 Never decided at night, in either mode: sending, publishing, paying, deleting with no way back,
 signing in with a password.
 
 **Every night has a safety net, made by itself:** `night.py begin` makes a restore point in the task
-folder (no git → `git init` + a commit «перед ночью»; git → a commit + a tag `nightcall-before-<time>`)
+folder (no git → `git init` + a commit "before the night"; git → a commit + a tag `nightcall-before-<time>`)
 and writes the fence rule into the folder's `CLAUDE.md`: work only inside this folder. The night is
 bound to the Claude Code window that started it (`arm --session`), never to another open window.
-The morning report starts with **«Нужно Ваше решение»**, then done / not done / to check / who took part.
+The morning report starts with **"Needs your decision"**, then done / not done / to check / who took part.
 
 ```
 python3 scripts/team.py rollcall --out seats.json
-python3 scripts/team.py web-mark --seats seats.json --site chatgpt --status жив
+python3 scripts/team.py web-mark --seats seats.json --site chatgpt --status alive
 python3 scripts/team.py web-when --seats seats.json night      # or morning
 python3 scripts/team.py decide-when --seats seats.json council   # or morning
 python3 scripts/team.py summary --seats seats.json
-echo "Чего не хватает в этом плане?" | python3 scripts/team.py ask --seats seats.json --progress PROGRESS.md -
+echo "What's missing from this plan?" | python3 scripts/team.py ask --seats seats.json --progress PROGRESS.md -
 ```
 
 ## The sturdiest night: the loop

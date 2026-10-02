@@ -15,5 +15,5 @@ case "$(uname -s)" in
       *m) exec powershell -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$here/awake-windows.ps1" 2>/dev/null || echo "$here/awake-windows.ps1")" -Minutes "${h%m}";;
       *) exec powershell -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$here/awake-windows.ps1" 2>/dev/null || echo "$here/awake-windows.ps1")" -Hours "${h%h}";;
     esac;;
-  *) echo "Не узнал систему $(uname -s). Mac: awake-mac.sh, Linux: awake-linux.sh, Windows: awake-windows.ps1"; exit 3;;
+  *) echo "Didn't recognize the system $(uname -s). Mac: awake-mac.sh, Linux: awake-linux.sh, Windows: awake-windows.ps1"; exit 3;;
 esac

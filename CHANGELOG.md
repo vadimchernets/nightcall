@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.6 — 2026-10-02
+
+- Step 0 guard: every hook now runs through `hooks/python.sh`, which starts the hook only with a
+  real Python 3.8+. On a Mac without Command Line Tools it never runs the `/usr/bin/python3` stub (the
+  one that pops Apple's install window mid-lesson); on Windows it skips the Microsoft Store stub and
+  finds python.org's `python` or `py`. With no Python the session start says so in one line and the
+  session goes on; nothing errors. Tests: `tests/test_step0.py`.
+- Every release now carries `nightcall-0.3.6.zip` (one top folder `nightcall-0.3.6/`), built by the new
+  `scripts/release-zip.sh` and attached by `.github/workflows/release.yml` on each `v*` tag. The Poly A1
+  catalogue installs it as an `archive` source with its `sha256`, so installing needs no git: a
+  beginner's Linux has none, and on a Mac without Apple's Command Line Tools `git` is the stub that
+  opens Apple's install window.
+
 ## 0.3.5 — 2026-10-02
 
 - Per-language word tables (quota / sign-in / reset-time recognition of helper messages) moved out of

@@ -1,0 +1,58 @@
+#!/bin/sh
+# Step 0 guard: run a hook script with a REAL Python 3, or do nothing at all.
+#
+#   sh python.sh <plugin> <say|quiet> <script.py> [args...]
+#
+# Why (02.10.2026). A Mac without Apple's Command Line Tools still has /usr/bin/python3 - a stub
+# that, when run, pops the "install developer tools?" window. A hook that simply ran `python3`
+# threw that window at a beginner in the middle of a lesson, on every session start and on every
+# file write. On Windows the same trap is the Microsoft Store stub, and python.org's Python there is
+# called `python` or `py`, never `python3`. Linux may have no Python at all.
+#
+# So: on macOS, /usr/bin/python3 counts only when `xcode-select -p` names a developer folder that
+# really holds python3 (that check never opens a window). Everywhere, a candidate counts only after
+# `-c` proves it is Python 3.8+ (the Windows stub answers `-c` with an error, not with the Store).
+# Nothing found: `say` prints one line for Claude (SessionStart puts stdout into Claude's context),
+# `quiet` prints nothing; both exit 0, so the session goes on without this plugin - never an error,
+# never a window. Stdin is untouched until the real script gets it through `exec`.
+plugin=$1 mode=$2 script=$3
+shift 3
+
+real() {   # real <command...>: is this a working Python 3.8+?
+  "$@" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' </dev/null >/dev/null 2>&1
+}
+
+# The two overrides exist for the tests only (tests/test_step0.py): a fake Apple stub and a fake OS.
+stub=${STEP0_APPLE_STUB:-/usr/bin/python3}
+os=${STEP0_OS:-$(uname -s 2>/dev/null)}
+
+PY=
+case "$os" in
+  Darwin)
+    p=$(command -v python3 2>/dev/null)
+    if [ -n "$p" ] && [ "$p" != "$stub" ]; then
+      real "$p" && PY=$p
+    elif [ -n "$p" ]; then
+      dev=$(xcode-select -p 2>/dev/null)
+      [ -n "$dev" ] && [ -x "$dev/usr/bin/python3" ] && real "$p" && PY=$p
+    fi
+    ;;
+  *)
+    for c in python3 python; do
+      p=$(command -v "$c" 2>/dev/null) || continue
+      real "$p" && { PY=$p; break; }
+    done
+    if [ -z "$PY" ] && command -v py >/dev/null 2>&1 && real py -3; then
+      exec py -3 "$script" "$@"
+    fi
+    ;;
+esac
+
+if [ -n "$PY" ]; then
+  exec "$PY" "$script" "$@"
+fi
+
+if [ "$mode" = say ]; then
+  echo "$plugin is paused: this computer has no working Python 3 yet, so $plugin does nothing for now. Tell the person in one line and do step 0 first (in the Poly A1 folder it is the first step of START-HERE): Mac - xcode-select --install, then press Install in Apple's window and wait 5-10 minutes; Windows - winget install -e --id Python.Python.3.12 --scope user; Linux - sudo apt-get install -y python3. Then restart Claude Code."
+fi
+exit 0

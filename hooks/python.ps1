@@ -14,18 +14,28 @@
 # `python3` may be the Microsoft Store stub, which answers `-c` with exit 9009 and never opens the
 # Store, so a candidate counts only after `-c` proves it is Python 3.8+. Nothing found: `say` prints
 # one line for Claude, `quiet` prints nothing; both exit 0. Stdin is left alone for the real script.
-# The text both ways is UTF-8: Windows PowerShell would otherwise re-encode the script's output in
-# the console's code page, and Python would read the hook's JSON in the ANSI one.
+# The real script is started as a plain process on PowerShell's own stdin and stdout, so its UTF-8
+# output reaches Claude Code untouched, and PYTHONUTF8 makes Python read the hook's JSON as UTF-8
+# (not in the ANSI code page).
 $plugin = $args[0]
 $mode = $args[1]
 $script = $args[2]
 $rest = @($args | Select-Object -Skip 3)
 
-$utf8 = New-Object System.Text.UTF8Encoding $false
-try { [Console]::OutputEncoding = $utf8 } catch {}
-$OutputEncoding = $utf8
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
+
+function Quote-Argument([string]$a) {   # one argument of a Windows command line, as a C program reads it back
+  if ($a -ne '' -and $a -notmatch '[\s"]') { return $a }
+  $out = '"'; $slashes = 0
+  foreach ($ch in $a.ToCharArray()) {
+    if ($ch -eq [char]92) { $slashes++; continue }
+    if ($ch -eq '"') { $out += ([string][char]92 * (2 * $slashes + 1)) + '"' }
+    else { $out += ([string][char]92 * $slashes) + $ch }
+    $slashes = 0
+  }
+  return $out + ([string][char]92 * (2 * $slashes)) + '"'
+}
 
 $check = 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)'
 foreach ($candidate in @('python', 'py -3', 'python3')) {
@@ -35,8 +45,15 @@ foreach ($candidate in @('python', 'py -3', 'python3')) {
   $pre = @($words | Select-Object -Skip 1)
   try { & $exe.Source @pre -c $check 2>$null | Out-Null } catch { continue }
   if ($LASTEXITCODE -ne 0) { continue }
-  & $exe.Source @pre $script @rest
-  exit $LASTEXITCODE
+  # Not `& python ...`: PowerShell would read the script's output and write it again in its own encoding.
+  # A process started this way gets PowerShell's own stdin, stdout and stderr, byte for byte.
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $exe.Source
+  $psi.Arguments = (@($pre) + @($script) + @($rest) | ForEach-Object { Quote-Argument $_ }) -join ' '
+  $psi.UseShellExecute = $false
+  $proc = [System.Diagnostics.Process]::Start($psi)
+  $proc.WaitForExit()
+  exit $proc.ExitCode
 }
 
 if ($mode -eq 'say') {

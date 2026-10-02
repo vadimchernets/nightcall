@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.9 — 2026-10-02
+
+- On Windows the step-0 launcher (`hooks/python.ps1`, and `hooks/python.sh` in Git Bash) also finds a Python installed
+  after Claude Code started, with no restart: Claude Code hands its hooks and shells the PATH it was started with, so
+  python.org's fresh Python is not on it. After `python`, `py -3` and `python3` on that PATH the launcher now looks at the
+  `py` launcher (`%LOCALAPPDATA%\Programs\Python\Launcher`, `%SystemRoot%`), `%LOCALAPPDATA%\Programs\Python\Python3*`
+  (and `%ProgramFiles%\Python3*`), newest first, and the install paths in the registry
+  (`HKCU`/`HKLM\Software\Python\PythonCore\*\InstallPath`). Same proof as before: a candidate counts only once `-c`
+  says 3.8+, and the Microsoft Store stub is never started. The step-0 line no longer asks for a restart. Checked on
+  GitHub Actions windows-latest: Python installed silently in the middle of a job, then a hook (PowerShell 7 and 5.1),
+  a skill's script and Git Bash ran on it with the PATH unchanged.
+
 ## 0.3.8 — 2026-10-02
 
 - Skills run their scripts through the step-0 launcher, on every system: the Bash tool runs

@@ -2,7 +2,7 @@
 name: team
 description: The roll call of helper AIs before the night, and their replacement during it. While the person is still here - every AI program of another company already installed by subscription (Codex/ChatGPT, Gemini/agy, Grok, Kimi, Qwen) and every free key (NVIDIA first, then Google AI Studio, Groq, OpenRouter) gets a test question; then Chrome is checked (Claude in Chrome connected, a tab opens, the person is signed in to ChatGPT, Gemini, Kimi, DeepSeek, Meta AI...), and the person is asked to press "Allow" now, not at night. At night - CLI, then the next CLI, then free keys, then only the web chats that passed the roll call, then Claude's own critics; every replacement is a line in PROGRESS.md. Use when the person says "which AIs are alive", "roll call", "connect other AIs", "check the helpers", "check the browser", "other AIs" (in any language), or during a night run every few hours.
 argument-hint: "[folder of the night run]"
-allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/*) PowerShell(& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" nightcall say scripts/*) Bash(open *) Bash(osascript *) Bash(date*) Read Write ToolSearch
+allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/*) PowerShell(${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1 nightcall say scripts/*) Bash(open *) Bash(osascript *) Bash(date*) Read Write ToolSearch
 ---
 
 # Nightcall: the team for tonight
@@ -11,9 +11,11 @@ allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scr
 
 Every script command on this page is written for the **Bash** tool and starts with
 `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/…`. If your shell tool is **PowerShell** (Windows
-without Git Bash), run the same command with only its start changed: `& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1"`
-in place of `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh"`, everything after it unchanged, on one line; text for
-standard input goes in as `@'…'@ | & "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" …` instead of `<<'EOF'`.
+without Git Bash), only the start changes: write the launcher's path bare, with no quotes and no `&`
+— `${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1 nightcall say scripts/…` — and keep the rest, on one line; that is the
+form this skill's permission covers. Only if that path has a space in it, write
+`& "${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1" …` instead (the person is then asked once). Text for standard input:
+`@'…'@ | ${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1 …` (`| & "…"` if the path has a space) instead of `<<'EOF'` — also asked once.
 Never call `python3`, `python` or `py` yourself: the launcher finds a real Python 3.8+ (`python`,
 then `py -3`, then `python3`) and never starts the Microsoft Store or Apple stub. If it answers
 with one line saying nightcall "is paused" because this computer has no working Python 3 yet, tell the

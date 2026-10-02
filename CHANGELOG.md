@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.3 — 2026-10-02
+
+- **Blind comparison** (owner, 01–02.10.2026): when Claude weighs the council, the answers are «Ответ A /
+  B / C», no company or model names — an AI judge leans to the answer that sounds like itself.
+  `team.py ask --blind DIR` saves the answer without printing who gave it, `team.py blind --dir DIR`
+  shows them shuffled as A / B / C, `team.py reveal --dir DIR` names them — only after the decision.
+  README «Decisions…», `/nightcall:start` (council) and `/nightcall:team` say so. Test: names hidden
+  until `reveal`.
+- **429 on a free key → the next provider, not the next key or model of the same account.** Checked in
+  the providers' docs 02.10.2026: the free limit is per project (Google AI Studio), per organization
+  (Groq), per account (OpenRouter: «Making additional accounts or API keys will not affect your rate
+  limits»; NVIDIA). A daily limit pauses it until the end of the run — only that model at Google and Groq
+  (their quota is per model too), the whole of OpenRouter (`free-models-per-day` covers every :free
+  model); a per-minute limit (all NVIDIA 429s) → the next provider now, this one once more at the end of
+  the line, back in `seats.json` a minute later. The roll call still tries every model.
+
 ## 0.3.2 — 2026-10-01
 
 - Free keys (the course lesson «Бесплатные ключи ИИ») brought up to date, as in Poly A1 `src/duoAuto.ts`

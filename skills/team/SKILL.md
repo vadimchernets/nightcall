@@ -103,6 +103,11 @@ Question on standard input. The order is fixed:
 4. Claude's own critics: a fresh sub-agent with no memory of your reasoning — said out loud,
    never passed off as another company.
 
+**Several helpers on one decision — blind.** Add `--blind "<folder>/совет-N"` to each `ask`: the answer
+is saved without a name on screen. Then `team.py blind --dir "<folder>/совет-N"` gives «Ответ A / B / C»
+in random order; weigh and decide, and only after that `team.py reveal --dir …` says who was who
+(a judge AI leans to the answer that sounds like itself).
+
 Every replacement is written to `PROGRESS.md` by the script («codex — лимит до 03:15; заменён:
 Kimi»). A CLI at its limit is marked «лимит до ЧЧ:ММ» in `seats.json` and comes back at the head of
 the line after that time by itself. Quote a helper's answer as theirs; do not tidy it. Programs run

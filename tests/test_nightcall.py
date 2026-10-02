@@ -440,3 +440,83 @@ def test_free_key_tries_next_model_and_nvidia_goes_first():
     assert keys == ["nvidia", "groq"], keys
     assert all(k["статус"] == "жив" for k in json.load(open(seats, encoding="utf-8"))["ключи"])
     assert "n-test" not in open(seats, encoding="utf-8").read()
+
+
+def test_blind_comparison_hides_names_until_reveal():
+    """Owner, 01.10.2026: the judge sees «Ответ A / B», names only after the decision."""
+    if platform.system() == "Windows":
+        return
+    bindir = tempfile.mkdtemp()
+    fake(bindir, "kimi", 'echo "первый вариант: делать через очередь"')
+    fake(bindir, "grok", 'echo "второй вариант: делать сразу"')
+    env = {"NIGHTCALL_PATH": bindir + os.pathsep + "/usr/bin" + os.pathsep + "/bin",
+           "NIGHTCALL_HOME": tempfile.mkdtemp()}
+    folder = os.path.join(tempfile.mkdtemp(), "совет")
+    for who in ("kimi", "grok"):
+        r = team(["ask", "--who", who, "--no-fallback", "--blind", folder, "-"], env, "вопрос")
+        out = json.loads(r.stdout)
+        assert out["ok"] and "кто" not in out and "ответ" not in out, out
+        assert who not in r.stdout.lower() and "Kimi" not in r.stdout and "Grok" not in r.stdout, r.stdout
+    r = team(["blind", "--dir", folder], env)
+    assert r.returncode == 0
+    assert "Ответ A" in r.stdout and "Ответ B" in r.stdout, r.stdout
+    assert "первый вариант" in r.stdout and "второй вариант" in r.stdout
+    for name in ("kimi", "grok", "moonshot", "xai"):
+        assert name not in r.stdout.lower(), r.stdout
+    r = team(["reveal", "--dir", folder], env)
+    who = json.loads(r.stdout)
+    assert sorted(who) == ["A", "B"] and sorted(who.values()) == ["Grok", "Kimi"], who
+
+
+def test_429_goes_to_the_next_provider_not_the_next_key():
+    """Free limits are per project/account (Google, Groq, OpenRouter, NVIDIA docs, 02.10.2026)."""
+    if platform.system() == "Windows":
+        return
+    import http.server
+    import threading
+    asked = []
+    replies = {
+        "moonshotai/kimi-k3": (429, b'{"error": {"message": "Too Many Requests"}}'),
+        "gemini-3.8-flash": (429, b'[{"error": {"code": 429, "message": "You exceeded your current quota",'
+                                  b' "details": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}}]'),
+        "qwen/qwen3.8-27b:free": (429, b'{"error": {"message": "Rate limit exceeded: free-models-per-day"}}'),
+    }
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            model = json.loads(self.rfile.read(int(self.headers["Content-Length"])))["model"]
+            asked.append(model)
+            code, body = replies.get(model, (200, json.dumps(
+                {"choices": [{"message": {"content": "ответ " + model}}]}).encode()))
+            self.send_response(code)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    home = tempfile.mkdtemp()
+    url = "http://127.0.0.1:%d/v1/chat/completions" % srv.server_port
+    with open(os.path.join(home, "free-keys.env"), "w") as fh:
+        fh.write("NVIDIA_API_KEY=n\nGEMINI_API_KEY=g\nOPENROUTER_API_KEY=o\n")
+    env = {"NIGHTCALL_PATH": tempfile.mkdtemp(), "NIGHTCALL_HOME": home, "NIGHTCALL_KEY_URL_NVIDIA": url,
+           "NIGHTCALL_KEY_URL_GOOGLE_AI_STUDIO": url, "NIGHTCALL_KEY_URL_OPENROUTER": url}
+    # NVIDIA per-minute -> straight to Google, not to GLM on the same account;
+    # Gemini daily for 3.8 -> 3.6 has its own quota and answers
+    r = team(["ask", "-"], env, "вопрос")
+    out = json.loads(r.stdout)
+    assert out["ok"] and out["ответ"] == "ответ gemini-3.6-flash", out
+    assert asked == ["moonshotai/kimi-k3", "gemini-3.8-flash", "gemini-3.6-flash"], asked
+    # OpenRouter daily (free-models-per-day covers all :free) -> no other OpenRouter model
+    asked.clear()
+    replies["gemini-3.6-flash"] = replies["gemini-2.5-flash"] = replies["gemini-3.8-flash"]
+    replies["z-ai/glm-5.3"] = replies["moonshotai/kimi-k3"]
+    r = team(["ask", "-"], env, "вопрос")
+    out = json.loads(r.stdout)
+    assert not out["ok"], out
+    assert asked.count("qwen/qwen3.8-27b:free") == 1 and "openrouter/free" not in asked, asked
+    # per-minute NVIDIA came back once at the end of the line (Kimi again), not GLM in between
+    assert asked[0] == "moonshotai/kimi-k3" and asked[1] == "gemini-3.8-flash", asked
+    assert asked.count("moonshotai/kimi-k3") == 2, asked

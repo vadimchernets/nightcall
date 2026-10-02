@@ -78,7 +78,9 @@ meant for a web chat is saved in `утро-совет.md` for the morning.
 **Decisions that are usually yours** — one more choice before you leave, default «решает совет ИИ»:
 
 - `council` (default) — Claude asks the live AIs (other companies, then its own critics), decides,
-  and the night does not stop. Each such decision is its own commit and an entry in `решения.md`
+  and the night does not stop. It weighs the answers **blind** — «Ответ A / B / C», no company or
+  model names (`team.py ask --blind DIR`, then `team.py blind --dir DIR`); names come out only after
+  the decision (`team.py reveal --dir DIR`): a judge AI leans to the answer that sounds like itself. Each such decision is its own commit and an entry in `решения.md`
   (what, why, who advised, the other options); in the morning «Нужно Ваше решение» lists them, each
   with its own `git revert <commit>` and «исправить так: …».
 - `morning` — such a fork is not decided: the step waits with a question, the night goes on with

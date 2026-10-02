@@ -123,7 +123,9 @@ leaving (§0e, `решения_когда` in `seats.json`). Never stop the nigh
 
 - `council` (default) — ask the council (§3: other companies first, then Claude's own critics; the
   question as a question, with the options), decide, and make the decision **its own commit** — a
-  restore point for that one decision. Then write it down:
+  restore point for that one decision. **Weigh blind**: every helper with `ask --blind "<folder>/совет-N"`,
+  then `team.py blind --dir "<folder>/совет-N"` shows them as «Ответ A / B / C» without names — an AI
+  judge leans to the answer like its own. Decide first; only then `team.py reveal --dir …` for `--who`. Then write it down:
   `team.py decide --dir "<folder>" --what "…" --why "…" --who "codex, grok, свои критики" --alt "…" --commit <hash>`
   → `решения.md`, with `git revert <hash>` ready for the morning.
 - `morning` — do not decide: `team.py hold --dir "<folder>" --question "…" --waits "…" --alt "…"`,

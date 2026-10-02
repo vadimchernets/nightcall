@@ -7,7 +7,8 @@ Claude is the main agent for the night. Its helpers are AIs of OTHER companies, 
   1. programs by subscription already on this computer (codex, agy/gemini, grok, kimi, qwen);
   2. free keys, only if the person set them up earlier (the course lesson «Бесплатные ключи ИИ»): NVIDIA
      (Kimi K3, GLM-5.3), Google AI Studio, Groq, OpenRouter free models - read from the environment or
-     ~/.nightcall/free-keys.env; several models per key, the next one on 429/503/404/timeout;
+     ~/.nightcall/free-keys.env; several models per key, the next one on 503/404/timeout (429: see
+     limit_scope() - the free limit belongs to the project/account, not to the key);
   3. web chats in the person's own Chrome - only the sites that passed the roll call (web-mark),
      and only if the person chose `web: night` (default); with `web: morning` the question that
      would have gone to a web chat is saved in <folder>/утро-совет.md for the morning;
@@ -26,6 +27,9 @@ Claude is the main agent for the night. Its helpers are AIs of OTHER companies, 
     python3 team.py ask [--who codex] [--seats S] [--progress PROGRESS.md] -   # question on stdin
     python3 team.py next --seats seats.json           # the route for the next question, no call made
     python3 team.py used --seats seats.json           # who really took part (for MORNING.md)
+    python3 team.py ask --blind DIR -                 # the answer goes to DIR, the name stays hidden
+    python3 team.py blind --dir DIR                   # all answers as «Ответ A / B / C», no names
+    python3 team.py reveal --dir DIR                  # who was A, B, C - only AFTER the decision
 
 It never installs anything, never signs anyone in, never types a password and never spends money.
 Command lines and the "dead" patterns come from the owner's V1 Synthesizer (real-deps.mjs).
@@ -67,7 +71,15 @@ MAIN = ("anthropic", "claude", lambda p: ["-p", p], "Claude (главный)")
 # minute, may hang - so 30 s per model in the roll call), then Google AI Studio (Gemini Pro is no longer
 # free - only Flash), Groq (Llama is not free since 16.08.2026 - 404; Qwen 3.8 and gpt-oss), OpenRouter :free
 # (no free DeepSeek there any more; `openrouter/free` - any free model, the last hope).
-# Within one key: 429/503/404/timeout -> the next model; 401/403 (key not accepted) -> the whole key is out.
+# Within one key: 503/404/timeout -> the next model; 401/403 (key not accepted) -> the whole key is out.
+# 429: the free limit is per project/account, not per key (checked 02.10.2026 - Google: «Rate limits are
+# applied per project, not per API key», ai.google.dev/gemini-api/docs/rate-limits; Groq: «at the
+# organization level», console.groq.com/docs/rate-limits; OpenRouter: «Making additional accounts or API
+# keys will not affect your rate limits», openrouter.ai/docs/api/reference/limits; NVIDIA: per account).
+# So a 429 never sends us to another key of the same provider: a daily limit pauses it until the end of
+# the run (Google and Groq count per model - only that model; OpenRouter's free-models-per-day covers
+# every :free model - the whole provider); a per-minute limit -> the next provider now, this one again
+# at the end of the line.
 # (name, env var, url, [models], label, seconds per model in the roll call or None)
 FREE_KEYS = [
     ("nvidia", "NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -259,6 +271,16 @@ def configured_keys():
     return out
 
 
+def limit_scope(name, detail):
+    """A 429: "minute" - per-minute limit (next provider now, this one again later); "model" - the daily
+    limit of this model only (Google, Groq: quota per project AND model); "provider" - the daily limit of
+    the whole provider (OpenRouter free-models-per-day, any other)."""
+    d = (detail or "").lower()
+    if name == "nvidia" or re.search(r"perminute|per.minute|free-models-per-min|\brpm\b|\btpm\b", d):
+        return "minute"  # NVIDIA has no daily cap, only ~40 a minute
+    return "model" if name in ("google-ai-studio", "groq") else "provider"
+
+
 def run_key_model(k, model, prompt, timeout):
     """One model of one key. Returns (result, http code or 0 for a timeout / network error)."""
     msg = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2}
@@ -278,6 +300,7 @@ def run_key_model(k, model, prompt, timeout):
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:500]
         r = classify(False, "", f"{e.code} {detail}")
+        r["_detail"] = detail
         if e.code in (401, 403) and r["статус"] == "сбой":
             r = {"ok": False, "статус": "не вошли", "почему": "ключ не принят — проверьте его сейчас"}
         return r, e.code
@@ -297,6 +320,20 @@ def run_key(k, prompt, timeout, probe=False):
             r["модель"] = model
             break
         tried.append(f"{model}: {r['почему'][:120]}")
+        if code == 429:
+            scope = limit_scope(k["ключ"], r.pop("_detail", ""))
+            if scope == "minute" and not probe:
+                r["позже"] = True  # the next provider now, this key once more at the end
+                back = now() + datetime.timedelta(minutes=1)
+                r["до"] = back.strftime("%Y-%m-%d %H:%M")
+                r["почему"] = f"поминутный лимит — вернётся в {back:%H:%M}"
+                break
+            if scope == "minute":
+                continue  # the roll call only asks whether the key works at all
+            if scope == "provider":
+                break
+            continue  # this model's daily quota is spent; the next model has its own
+        r.pop("_detail", None)
         if code not in NEXT_MODEL and code != 0:
             break
     if not r["ok"] and len(tried) > 1:
@@ -633,6 +670,7 @@ def cmd_ask(args):
         order = order[:1]
     prompt = sys.stdin.read() if args.prompt == "-" else args.prompt
     tried = []
+    again = set()
     for x in order:
         if x["путь"] == "cli":
             h = next(h for h in found if h["программа"] == x["кто"])
@@ -640,11 +678,21 @@ def cmd_ask(args):
         else:
             k = next(k for k in keys if k["ключ"] == x["кто"])
             r = run_key(k, prompt, ASK_TIMEOUT)
+            if r.pop("позже", False) and x["кто"] not in again:
+                again.add(x["кто"])
+                order.append(x)  # per-minute limit: back at the end of the line, once
         if r["ok"]:
             if tried:
                 log_progress(args.progress, "; ".join(f"{t['кто']} — {t['почему']}" for t in tried)
                              + f"; заменён: {x['имя']}")
             mark(args.seats, x, r)
+            if args.blind:
+                # Blind comparison (owner, 01.10.2026): a judge AI leans to the answer that sounds like
+                # itself, so the answer is saved with its name and Claude sees it only as «Ответ A».
+                saved = save_blind(args.blind, x, r)
+                print(json.dumps({"ok": True, "сохранено": saved, "не_смогли": len(tried),
+                                  "дальше": f"team.py blind --dir {args.blind}"}, ensure_ascii=False))
+                return 0
             print(json.dumps({"ok": True, "кто": x["имя"], "путь": x["путь"], "программа": x["кто"],
                               "секунд": r.get("секунд"), "не_смогли": tried, "ответ": r["ответ"]},
                              ensure_ascii=False))
@@ -666,6 +714,51 @@ def cmd_ask(args):
                       "живых программ и ключей других компаний нет",
                       "дальше": nxt, "запас": rest, "утро_совет": morning}, ensure_ascii=False))
     return 1
+
+
+# ---------- blind comparison: answers without names until the decision ----------
+
+BLIND_KEY = ".кто-есть-кто.json"
+
+
+def save_blind(folder, x, r):
+    os.makedirs(folder, exist_ok=True)
+    n = len([f for f in os.listdir(folder) if f.startswith("ответ-") and f.endswith(".json")]) + 1
+    path = os.path.join(folder, f"ответ-{n}.json")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"кто": x["имя"], "путь": x["путь"], "ответ": r["ответ"]}, fh, ensure_ascii=False, indent=1)
+    return path
+
+
+def blind_answers(folder):
+    """Every saved answer as «Ответ A / B / C» in a random order; who is who goes to a file Claude
+    does not read until it has decided."""
+    import random
+    files = sorted(f for f in os.listdir(folder) if f.startswith("ответ-") and f.endswith(".json"))
+    answers = [json.load(open(os.path.join(folder, f), encoding="utf-8")) for f in files]
+    random.shuffle(answers)
+    letters = [chr(ord("A") + i) if i < 26 else f"A{i}" for i in range(len(answers))]
+    with open(os.path.join(folder, BLIND_KEY), "w", encoding="utf-8") as fh:
+        json.dump({l: a["кто"] for l, a in zip(letters, answers)}, fh, ensure_ascii=False, indent=1)
+    return "\n\n".join(f"## Ответ {l}\n\n{a['ответ'].strip()}" for l, a in zip(letters, answers))
+
+
+def cmd_blind(args):
+    if not os.path.isdir(args.dir):
+        print(f"нет папки {args.dir}")
+        return 1
+    print(blind_answers(args.dir))
+    print("\nИмена скрыты. Сначала решение, потом: team.py reveal --dir " + args.dir)
+    return 0
+
+
+def cmd_reveal(args):
+    path = os.path.join(args.dir, BLIND_KEY)
+    if not os.path.exists(path):
+        print("ещё не было team.py blind")
+        return 1
+    print(json.dumps(json.load(open(path, encoding="utf-8")), ensure_ascii=False))
+    return 0
 
 
 def mark(path, x, result):
@@ -731,13 +824,19 @@ def main(argv=None):
     a.add_argument("--seats", help="seats.json из переклички: мёртвых пропускаем, новых мёртвых отмечаем")
     a.add_argument("--progress", help="PROGRESS.md: каждая замена — строкой")
     a.add_argument("--dir", help="папка, которую помощник может читать (его рабочая папка)")
+    a.add_argument("--blind", metavar="DIR",
+                   help="слепое сравнение: ответ — в DIR без имени на экране; потом blind и reveal")
     a.add_argument("--no-fallback", dest="fallback", action="store_false",
                    help="не переходить к следующему, если первый не ответил")
+    for name in ("blind", "reveal"):
+        p = sub.add_parser(name)
+        p.add_argument("--dir", required=True, help="папка ответов из ask --blind")
     args = ap.parse_args(argv)
     return {"list": cmd_list, "rollcall": cmd_rollcall, "probe": cmd_rollcall,
             "web-sites": cmd_web_sites, "web-mark": cmd_web_mark, "web-when": cmd_web_when,
             "decide-when": cmd_decide_when, "decide": cmd_decide, "hold": cmd_hold, "summary": cmd_summary,
-            "next": cmd_next, "used": cmd_used, "ask": cmd_ask}[args.cmd](args)
+            "next": cmd_next, "used": cmd_used, "ask": cmd_ask,
+            "blind": cmd_blind, "reveal": cmd_reveal}[args.cmd](args)
 
 
 if __name__ == "__main__":

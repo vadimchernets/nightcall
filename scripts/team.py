@@ -46,6 +46,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 # (family, binary, argv builder, human name). Claude is not a helper: it is the one asking.
 # Every helper runs READ-ONLY: it may read and search, it may not write or run commands.
@@ -129,30 +130,39 @@ PROBE_TIMEOUT = int(os.environ.get("NIGHTCALL_PROBE_TIMEOUT", "90"))
 ASK_TIMEOUT = int(os.environ.get("NIGHTCALL_ASK_TIMEOUT", "900"))
 
 # From V1 real-deps.mjs QUOTA_WORDS: the allowance ran out - not a breakage, it comes back by itself.
-# A helper (CLI or web chat) may answer in Russian on a Russian-locale machine or a Russian-UI
-# account, not just English - kept here as one entry per language, joined into the regex below, so
-# detection stays exactly as it was before the English rename (not English-only).
-QUOTA_WORDS = {
-    "en": [r"\brate[ _-]?limit", r"\busage limit", r"\bquota\b", r"\b429\b", r"too many requests",
-           r"limit reached", r"out of (?:extra )?(?:usage|credits)", r"resource[_ ]exhausted",
-           r"payment required", r"\b402\b", r"balance (?:is )?exhausted",
-           r"insufficient[ _](?:balance|credits?)", r"hit your limit"],
-    "ru": [r"лимит"],
-}
+# A helper (CLI or web chat) may answer in its own language on a localized machine or account, not
+# just English - one lang/<code>.json per language (loaded by _load_lang_tables() below), joined
+# into the regex below, so detection is not English-only.
+LANG_DIR = Path(__file__).resolve().parent.parent / "lang"
+
+
+def _load_lang_tables():
+    """Every lang/<code>.json as {code: {"quota": [...], "auth": [...], ...}}. Each file's own
+    recognition words, loaded fresh every import - never hand-copied into this script."""
+    tables = {}
+    for path in sorted(LANG_DIR.glob("*.json")):
+        with open(path, encoding="utf-8") as fh:
+            tables[path.stem] = json.load(fh)
+    return tables
+
+
+LANG = _load_lang_tables()
+# nightcall <= 0.3.3 wrote Russian field/status names and file names; the migration table and the
+# old file names live in lang/ru.json's own "legacy" section (read-only, see _migrate() below).
+LEGACY = LANG.get("ru", {}).get("legacy", {})
+
+QUOTA_WORDS = {code: data["quota"] for code, data in LANG.items()}
 QUOTA = re.compile("|".join(w for words in QUOTA_WORDS.values() for w in words), re.I)
-AUTH_WORDS = {
-    "en": [r"not (?:logged|signed) in", r"please (?:log|sign) ?in", r"unauthori[sz]ed", r"\b401\b",
-           r"authenticat", r"login required", r"no credentials", r"auth type", r"api key"],
-    "ru": [r"войдите"],
-}
+AUTH_WORDS = {code: data["auth"] for code, data in LANG.items()}
 AUTH = re.compile("|".join(w for words in AUTH_WORDS.values() for w in words), re.I)
-# "resets at 3am", "try again at 14:30", "until 5:00 PM", "resets in 2h 15m", "сброс в 03:00"
-RESET_AT_WORDS = {"en": [r"reset[s]?", r"try again", r"available", r"until"], "ru": [r"до", r"сброс\w*"]}
+# "resets at 3am", "try again at 14:30", "until 5:00 PM", "resets in 2h 15m" (and the same patterns
+# in every other lang/<code>.json)
+RESET_AT_WORDS = {code: data["reset_at"] for code, data in LANG.items()}
 RESET_AT = re.compile(r"(?:" + "|".join(w for words in RESET_AT_WORDS.values() for w in words) + r")\D{0,12}?"
                       r"(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?", re.I)
-RESET_IN_WORDS = {"en": [r"in"], "ru": [r"через"]}
-RESET_IN_HOUR_WORDS = {"en": [r"h", r"hours?"], "ru": [r"ч\w*"]}
-RESET_IN_MIN_WORDS = {"en": [r"m", r"min\w*"], "ru": [r"мин\w*"]}
+RESET_IN_WORDS = {code: data["reset_in"] for code, data in LANG.items()}
+RESET_IN_HOUR_WORDS = {code: data["reset_in_hour"] for code, data in LANG.items()}
+RESET_IN_MIN_WORDS = {code: data["reset_in_min"] for code, data in LANG.items()}
 RESET_IN = re.compile(
     r"\b(?:" + "|".join(w for words in RESET_IN_WORDS.values() for w in words) + r")\s+"
     r"(?:(\d+)\s*(?:" + "|".join(w for words in RESET_IN_HOUR_WORDS.values() for w in words) + r"))?\s*"
@@ -365,21 +375,9 @@ def run_key(k, prompt, timeout, probe=False):
 # Written by nightcall <= 0.3.3 (Russian field names and status words), before the English rename.
 # Read-only: old seats.json / blind-answer files made before the rename still load correctly; nothing
 # is ever written back under these old names. Covered by test_reads_legacy_russian_seats_and_blind_files.
-LEGACY_KEYS = {
-    "семья": "family", "программа": "program", "имя": "name", "где": "path", "статус": "status",
-    "почему": "why", "до": "until", "секунд": "seconds", "ответ": "answer", "участвовали": "participated",
-    "решения_когда": "decide_when", "веб_когда": "web_when", "помощники": "helpers", "ключи": "keys",
-    "веб": "web", "браузер": "browser", "ключ": "key", "адрес": "url", "модели": "models",
-    "ждать": "wait", "модель": "model", "сайт": "site", "проверено": "checked",
-    "кто": "who", "путь": "route", "не_смогли": "could_not", "дальше": "next", "запас": "reserve",
-    "утро_совет": "morning_advice", "решения": "decisions", "отменить": "undo", "пауза": "paused",
-}
-LEGACY_STATUS = {
-    "жив": "alive", "лимит": "limit", "не вошли": "not-signed-in", "сбой": "error",
-    "молчит": "timeout", "не запустился": "failed-to-start", "нет программы": "not installed",
-    "капча": "captcha", "нужен вход": "needs-sign-in", "не открылся": "did-not-open",
-    "нет браузера": "no-browser",
-}
+# The actual old names live in lang/ru.json's "legacy" section (LEGACY, loaded above) - not here.
+LEGACY_KEYS = LEGACY.get("keys", {})
+LEGACY_STATUS = LEGACY.get("status", {})
 
 
 def _migrate(obj):
@@ -597,13 +595,13 @@ DECISIONS_HEAD = ("# Decisions of the night\n\nForks in the road usually left to
                   "password — the council never decides these; they always wait for morning.\n")
 
 
-LEGACY_DECISIONS_NAME = "решения.md"  # written by nightcall <= 0.3.3; read-only fallback
+LEGACY_DECISIONS_NAME = LEGACY.get("decisions_file", "")  # written by nightcall <= 0.3.3; read-only fallback
 
 
 def decisions_file(folder):
     folder = folder or os.getcwd()
     path = os.path.join(folder, "decisions.md")
-    legacy = os.path.join(folder, LEGACY_DECISIONS_NAME)
+    legacy = os.path.join(folder, LEGACY_DECISIONS_NAME) if LEGACY_DECISIONS_NAME else path
     if not os.path.exists(path) and os.path.exists(legacy):
         return legacy  # keep appending to the file the person already has
     if not os.path.exists(path):
@@ -633,13 +631,13 @@ def cmd_hold(args):
     return 0
 
 
-LEGACY_MORNING_ADVICE_NAME = "утро-совет.md"  # written by nightcall <= 0.3.3; read-only fallback
+LEGACY_MORNING_ADVICE_NAME = LEGACY.get("morning_advice_file", "")  # written by nightcall <= 0.3.3; read-only fallback
 
 
 def save_for_morning(args, prompt):
     folder = args.dir or (os.path.dirname(os.path.abspath(args.seats)) if args.seats else os.getcwd())
     path = os.path.join(folder, "morning-advice.md")
-    legacy = os.path.join(folder, LEGACY_MORNING_ADVICE_NAME)
+    legacy = os.path.join(folder, LEGACY_MORNING_ADVICE_NAME) if LEGACY_MORNING_ADVICE_NAME else path
     if not os.path.exists(path) and os.path.exists(legacy):
         path = legacy  # keep appending to the file the person already has
     new = not os.path.exists(path)
@@ -785,14 +783,18 @@ def cmd_ask(args):
 # ---------- blind comparison: answers without names until the decision ----------
 
 BLIND_KEY = ".who-is-who.json"
-LEGACY_BLIND_KEY = ".кто-есть-кто.json"          # written by nightcall <= 0.3.3; read-only fallback
-LEGACY_ANSWER_PREFIX = "ответ-"                  # same; new answers are always saved as "answer-N.json"
+LEGACY_BLIND_KEY = LEGACY.get("blind_key_file", "")  # written by nightcall <= 0.3.3; read-only fallback
+LEGACY_ANSWER_PREFIX = LEGACY.get("answer_prefix", "")  # same; new answers are always "answer-N.json"
+
+
+def _is_answer_file(name):
+    return name.endswith(".json") and (name.startswith("answer-") or
+                                        (LEGACY_ANSWER_PREFIX and name.startswith(LEGACY_ANSWER_PREFIX)))
 
 
 def save_blind(folder, x, r):
     os.makedirs(folder, exist_ok=True)
-    n = len([f for f in os.listdir(folder)
-             if (f.startswith("answer-") or f.startswith(LEGACY_ANSWER_PREFIX)) and f.endswith(".json")]) + 1
+    n = len([f for f in os.listdir(folder) if _is_answer_file(f)]) + 1
     path = os.path.join(folder, f"answer-{n}.json")
     with open(path, "w", encoding="utf-8") as fh:
         json.dump({"who": x["name"], "route": x["route"], "answer": r["answer"]}, fh, ensure_ascii=False, indent=1)
@@ -802,10 +804,10 @@ def save_blind(folder, x, r):
 def blind_answers(folder):
     """Every saved answer as "Answer A / B / C" in a random order; who is who goes to a file Claude
     does not read until it has decided. Also picks up answer-*.json files saved by nightcall <= 0.3.3
-    under their old name (ответ-*.json, old Russian field names) - read-only."""
+    under their pre-0.3.4 Russian-named prefix (see lang/ru.json legacy, old Russian field names) -
+    read-only."""
     import random
-    files = sorted(f for f in os.listdir(folder)
-                    if (f.startswith("answer-") or f.startswith(LEGACY_ANSWER_PREFIX)) and f.endswith(".json"))
+    files = sorted(f for f in os.listdir(folder) if _is_answer_file(f))
     answers = [_migrate(json.load(open(os.path.join(folder, f), encoding="utf-8"))) for f in files]
     random.shuffle(answers)
     letters = [chr(ord("A") + i) if i < 26 else f"A{i}" for i in range(len(answers))]
@@ -825,7 +827,7 @@ def cmd_blind(args):
 
 def cmd_reveal(args):
     path = os.path.join(args.dir, BLIND_KEY)
-    legacy = os.path.join(args.dir, LEGACY_BLIND_KEY)
+    legacy = os.path.join(args.dir, LEGACY_BLIND_KEY) if LEGACY_BLIND_KEY else path
     if not os.path.exists(path) and os.path.exists(legacy):
         path = legacy
     if not os.path.exists(path):

@@ -1,0 +1,44 @@
+{
+  "quota": [
+    "limite de uso",
+    "limite de taxa",
+    "cota (?:esgotada|excedida)",
+    "excedeu (?:a|sua) cota",
+    "\\b429\\b",
+    "muitas solicitações",
+    "limite atingido",
+    "sem créditos",
+    "créditos esgotados",
+    "saldo esgotado",
+    "pagamento necessário",
+    "\\b402\\b",
+    "atingiu (?:o seu |seu )?limite"
+  ],
+  "auth": [
+    "faça login",
+    "não (?:está )?autenticado",
+    "não autorizado",
+    "\\b401\\b",
+    "autenticação",
+    "login (?:necessário|obrigatório)",
+    "sem credenciais",
+    "chave de api"
+  ],
+  "reset_at": [
+    "reinicia",
+    "tente novamente",
+    "disponível",
+    "até"
+  ],
+  "reset_in": [
+    "em"
+  ],
+  "reset_in_hour": [
+    "h",
+    "horas?"
+  ],
+  "reset_in_min": [
+    "m",
+    "min\\w*"
+  ]
+}

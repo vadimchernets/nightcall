@@ -1,12 +1,29 @@
 # Changelog
 
+## 0.3.5 — 2026-10-02
+
+- Per-language word tables (quota / sign-in / reset-time recognition of helper messages) moved out of
+  `scripts/team.py` into one data file per language: `lang/en.json`, `lang/ru.json` - loaded at import
+  time from `lang/*.json`, same recognition behaviour as before.
+- Added `lang/es.json`, `lang/pt.json`, `lang/uk.json`: the same recognition tables in Spanish,
+  Portuguese (Brazilian-neutral) and Ukrainian, so a helper answering in one of those languages is
+  recognised too.
+- The legacy Russian field/status-name migration and the pre-0.3.4 Russian-named runtime files
+  (`decisions.md`'s old name, `morning-advice.md`'s old name, `.who-is-who.json`'s old name, the old
+  blind-answer file prefix) moved into `lang/ru.json`'s own `"legacy"` section - read-only, same
+  behaviour; `scripts/team.py` now holds no Russian text at all, only the loader.
+- Added `scripts/check_language.py` (run as part of `pytest`, via `tests/test_check_language.py`):
+  fails if Cyrillic appears anywhere outside a language place (a `ru`/`uk` path part, a `*.ru.*`
+  file name, or `lang/ru.json` / `lang/uk.json`). The project passes it clean.
+
 ## 0.3.4 — 2026-10-02
 
 - Project language is English: comments, skill instructions, script output, PLAN/PROGRESS/MORNING templates
   and the Stop hook's text translated; skills report to the person in the person's language.
 - Runtime names are English (`seats.json` keys and status words, `decisions.md`, `morning-advice.md`,
   `.who-is-who.json`, `answer-N.json`). Files written by 0.3.3 and earlier under the Russian names are still
-  read (and an existing `решения.md` / `утро-совет.md` keeps being appended to); nothing on disk is renamed.
+  read (and an existing pre-0.3.4 Russian-named file, see `lang/ru.json` legacy, keeps being appended to);
+  nothing on disk is renamed.
 - Quota / sign-in / reset-time detection keeps recognising Russian messages from helpers, now as the `ru`
   entry of a per-language word table. `night-loop.sh` reads the web/decide choice through the same
   migration as `team.py`, so an old `seats.json` keeps its "morning" choice.

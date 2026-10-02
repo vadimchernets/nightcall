@@ -14,8 +14,8 @@ Answer in the person's language. Find the night folder: the argument, or `python
 
 ## 1. Read, do not remember
 
-Read `TASK.md`, `PLAN.md`, `PROGRESS.md`, `decisions.md` (or its older/localized name `решения.md`,
-from before nightcall 0.3.4) and `morning-advice.md` (older/localized name `утро-совет.md`) if they
+Read `TASK.md`, `PLAN.md`, `PROGRESS.md`, `decisions.md` (or the pre-0.3.4 Russian-named file, see
+`lang/ru.json` legacy) and `morning-advice.md` (same, its own pre-0.3.4 Russian-named file) if they
 are there, and `git log --oneline` if the folder is under git.
 Who of the helpers really answered: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/team.py" used --seats
 "<folder>/seats.json"` (program, key or web chat, and how many answers).

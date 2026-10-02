@@ -1,0 +1,74 @@
+{
+  "quota": [
+    "лимит"
+  ],
+  "auth": [
+    "войдите"
+  ],
+  "reset_at": [
+    "до",
+    "сброс\\w*"
+  ],
+  "reset_in": [
+    "через"
+  ],
+  "reset_in_hour": [
+    "ч\\w*"
+  ],
+  "reset_in_min": [
+    "мин\\w*"
+  ],
+  "legacy": {
+    "keys": {
+      "семья": "family",
+      "программа": "program",
+      "имя": "name",
+      "где": "path",
+      "статус": "status",
+      "почему": "why",
+      "до": "until",
+      "секунд": "seconds",
+      "ответ": "answer",
+      "участвовали": "participated",
+      "решения_когда": "decide_when",
+      "веб_когда": "web_when",
+      "помощники": "helpers",
+      "ключи": "keys",
+      "веб": "web",
+      "браузер": "browser",
+      "ключ": "key",
+      "адрес": "url",
+      "модели": "models",
+      "ждать": "wait",
+      "модель": "model",
+      "сайт": "site",
+      "проверено": "checked",
+      "кто": "who",
+      "путь": "route",
+      "не_смогли": "could_not",
+      "дальше": "next",
+      "запас": "reserve",
+      "утро_совет": "morning_advice",
+      "решения": "decisions",
+      "отменить": "undo",
+      "пауза": "paused"
+    },
+    "status": {
+      "жив": "alive",
+      "лимит": "limit",
+      "не вошли": "not-signed-in",
+      "сбой": "error",
+      "молчит": "timeout",
+      "не запустился": "failed-to-start",
+      "нет программы": "not installed",
+      "капча": "captcha",
+      "нужен вход": "needs-sign-in",
+      "не открылся": "did-not-open",
+      "нет браузера": "no-browser"
+    },
+    "decisions_file": "решения.md",
+    "morning_advice_file": "утро-совет.md",
+    "blind_key_file": ".кто-есть-кто.json",
+    "answer_prefix": "ответ-"
+  }
+}

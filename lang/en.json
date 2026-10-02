@@ -1,0 +1,45 @@
+{
+  "quota": [
+    "\\brate[ _-]?limit",
+    "\\busage limit",
+    "\\bquota\\b",
+    "\\b429\\b",
+    "too many requests",
+    "limit reached",
+    "out of (?:extra )?(?:usage|credits)",
+    "resource[_ ]exhausted",
+    "payment required",
+    "\\b402\\b",
+    "balance (?:is )?exhausted",
+    "insufficient[ _](?:balance|credits?)",
+    "hit your limit"
+  ],
+  "auth": [
+    "not (?:logged|signed) in",
+    "please (?:log|sign) ?in",
+    "unauthori[sz]ed",
+    "\\b401\\b",
+    "authenticat",
+    "login required",
+    "no credentials",
+    "auth type",
+    "api key"
+  ],
+  "reset_at": [
+    "reset[s]?",
+    "try again",
+    "available",
+    "until"
+  ],
+  "reset_in": [
+    "in"
+  ],
+  "reset_in_hour": [
+    "h",
+    "hours?"
+  ],
+  "reset_in_min": [
+    "m",
+    "min\\w*"
+  ]
+}

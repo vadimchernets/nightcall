@@ -17,6 +17,14 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 S = os.path.join(ROOT, "scripts")
+LANG_DIR = os.path.join(ROOT, "lang")
+FIXTURES = os.path.join(ROOT, "tests", "fixtures")
+
+
+def fixture(path):
+    """One sample message from tests/fixtures/<path> (own-language text, kept out of this file)."""
+    with open(os.path.join(FIXTURES, path), encoding="utf-8") as fh:
+        return fh.read().strip()
 
 
 def run(cmd, env=None, inp=None):
@@ -225,20 +233,32 @@ def test_replacement_order_cli_key_web_claude_and_limit_comes_back():
 
 
 def test_reads_legacy_russian_seats_and_blind_files():
-    """nightcall <= 0.3.3 wrote Russian field/status names and file names. Files already on a
-    person's disk from before the English rename must still be read correctly (read-only: nothing
-    is written back under the old names)."""
+    """nightcall <= 0.3.3 wrote Russian field/status names and file names (now in lang/ru.json's
+    "legacy" section). Files already on a person's disk from before the English rename must still
+    be read correctly (read-only: nothing is written back under the old names). The old names
+    themselves are read from lang/ru.json through team.py - not hand-copied here - so this stays
+    correct if that table ever changes."""
+    sys.path.insert(0, S)
+    import team as T
+    rev_keys = {v: k for k, v in T.LEGACY_KEYS.items()}
+    rev_status = {v: k for k, v in T.LEGACY_STATUS.items()}
+
     bindir0 = tempfile.mkdtemp()
     fake(bindir0, "kimi", 'echo "ok"')
     env = {"NIGHTCALL_PATH": bindir0, "NIGHTCALL_HOME": tempfile.mkdtemp()}
     d = tempfile.mkdtemp()
     seats = os.path.join(d, "seats.json")
     old_seats = {
-        "помощники": [{"семья": "moonshot", "программа": "kimi", "имя": "Kimi", "где": "/bin/kimi",
-                        "статус": "жив", "почему": "", "проверено": "01:00"}],
-        "ключи": [], "веб": [{"сайт": "chatgpt", "имя": "ChatGPT", "адрес": "https://chatgpt.com/",
-                              "статус": "жив", "почему": "", "проверено": "01:00"}],
-        "браузер": {}, "участвовали": {}, "веб_когда": "night", "решения_когда": "council",
+        rev_keys["helpers"]: [{rev_keys["family"]: "moonshot", rev_keys["program"]: "kimi",
+                                rev_keys["name"]: "Kimi", rev_keys["path"]: "/bin/kimi",
+                                rev_keys["status"]: rev_status["alive"], rev_keys["why"]: "",
+                                rev_keys["checked"]: "01:00"}],
+        rev_keys["keys"]: [],
+        rev_keys["web"]: [{rev_keys["site"]: "chatgpt", rev_keys["name"]: "ChatGPT",
+                            rev_keys["url"]: "https://chatgpt.com/", rev_keys["status"]: rev_status["alive"],
+                            rev_keys["why"]: "", rev_keys["checked"]: "01:00"}],
+        rev_keys["browser"]: {}, rev_keys["participated"]: {},
+        rev_keys["web_when"]: "night", rev_keys["decide_when"]: "council",
     }
     json.dump(old_seats, open(seats, "w", encoding="utf-8"), ensure_ascii=False)
     route = json.loads(team(["next", "--seats", seats], env).stdout)
@@ -249,15 +269,17 @@ def test_reads_legacy_russian_seats_and_blind_files():
     assert "Roll call done: 1 program(s)/key(s) alive" in r.stdout, r.stdout
 
     # decisions.md / morning-advice.md: an old-named file already there keeps being used, not replaced
-    open(os.path.join(d, "решения.md"), "w", encoding="utf-8").write("# Decisions of the night\n")
+    legacy_decisions = os.path.join(d, T.LEGACY_DECISIONS_NAME)
+    open(legacy_decisions, "w", encoding="utf-8").write("# Decisions of the night\n")
     out = json.loads(team(["decide", "--dir", d, "--what", "x", "--why", "y", "--who", "z"], env).stdout)
-    assert out["decisions"] == os.path.join(d, "решения.md")
+    assert out["decisions"] == legacy_decisions
     assert not os.path.exists(os.path.join(d, "decisions.md"))
 
     # a legacy blind answer file (old keys) is picked up together with a newly-saved one
     folder = tempfile.mkdtemp()
-    with open(os.path.join(folder, "ответ-1.json"), "w", encoding="utf-8") as fh:
-        json.dump({"кто": "Kimi", "путь": "cli", "ответ": "old answer"}, fh, ensure_ascii=False)
+    with open(os.path.join(folder, T.LEGACY_ANSWER_PREFIX + "1.json"), "w", encoding="utf-8") as fh:
+        json.dump({rev_keys["who"]: "Kimi", rev_keys["route"]: "cli", rev_keys["answer"]: "old answer"},
+                   fh, ensure_ascii=False)
     bindir = tempfile.mkdtemp()
     fake(bindir, "grok", 'echo "new answer"')
     env2 = {"NIGHTCALL_PATH": bindir + os.pathsep + "/usr/bin" + os.pathsep + "/bin",
@@ -268,7 +290,7 @@ def test_reads_legacy_russian_seats_and_blind_files():
 
     # reveal falls back to the old hidden mapping file when only it exists
     folder2 = tempfile.mkdtemp()
-    with open(os.path.join(folder2, ".кто-есть-кто.json"), "w", encoding="utf-8") as fh:
+    with open(os.path.join(folder2, T.LEGACY_BLIND_KEY), "w", encoding="utf-8") as fh:
         json.dump({"A": "Kimi"}, fh, ensure_ascii=False)
     r = team(["reveal", "--dir", folder2], env)
     assert json.loads(r.stdout) == {"A": "Kimi"}, r.stdout
@@ -285,7 +307,8 @@ def test_night_loop_resolves_legacy_web_and_decide_choice():
     assert "T.web_when(T.load_seats(" in loop and "T.decide_when(T.load_seats(" in loop, loop
     d = tempfile.mkdtemp()
     seats = os.path.join(d, "seats.json")
-    json.dump({"веб_когда": "morning", "решения_когда": "morning"},
+    rev_keys = {v: k for k, v in T.LEGACY_KEYS.items()}
+    json.dump({rev_keys["web_when"]: "morning", rev_keys["decide_when"]: "morning"},
               open(seats, "w", encoding="utf-8"), ensure_ascii=False)
     assert T.web_when(T.load_seats(seats)) == "morning"
     assert T.decide_when(T.load_seats(seats)) == "morning"
@@ -301,8 +324,8 @@ def test_reset_time_parsing():
     assert T.reset_time("You are out of credits", base) is None
     # a helper (CLI or web chat) on a Russian-locale machine or Russian-UI account answers in
     # Russian, not English - the same reset wording must still parse (owner review, 02.10.2026)
-    assert T.reset_time("лимит, сброс в 03:00", base).strftime("%H:%M") == "03:00"
-    assert T.reset_time("лимит, через 2ч 15мин", base).strftime("%H:%M") == "01:15"
+    assert T.reset_time(fixture("ru/reset_at.txt"), base).strftime("%H:%M") == "03:00"
+    assert T.reset_time(fixture("ru/reset_in.txt"), base).strftime("%H:%M") == "01:15"
 
 
 def test_classifies_russian_quota_and_auth_messages():
@@ -311,10 +334,64 @@ def test_classifies_russian_quota_and_auth_messages():
     locale machine or account. QUOTA_WORDS/AUTH_WORDS keep a "ru" entry next to "en" for this."""
     sys.path.insert(0, S)
     import team as T
-    r = T.classify(False, "", "у вас кончился лимит на сегодня, сброс в 03:00")
+    r = T.classify(False, "", fixture("ru/quota.txt"))
     assert r["status"] == "limit" and r["until"].endswith("03:00"), r
-    r = T.classify(False, "", "войдите в аккаунт, пожалуйста")
+    r = T.classify(False, "", fixture("ru/auth.txt"))
     assert r["status"] == "not-signed-in", r
+
+
+def test_lang_files_share_the_same_category_keys():
+    """Every lang/<code>.json recognises the same categories as lang/en.json (quota, auth,
+    reset_at, reset_in, reset_in_hour, reset_in_min) - ru.json's extra "legacy" section aside."""
+    names = sorted(f for f in os.listdir(LANG_DIR) if f.endswith(".json"))
+    assert {"en.json", "ru.json", "es.json", "pt.json", "uk.json"} <= set(names)
+    with open(os.path.join(LANG_DIR, "en.json"), encoding="utf-8") as fh:
+        en_keys = set(json.load(fh))
+    for name in names:
+        with open(os.path.join(LANG_DIR, name), encoding="utf-8") as fh:
+            keys = set(json.load(fh)) - {"legacy"}
+        assert keys == en_keys, name
+
+
+def test_each_language_table_is_loaded_and_recognises_a_sample():
+    """team.py loads every lang/<code>.json (QUOTA_WORDS/AUTH_WORDS/... cover every language found
+    there) and the combined recognizer catches one quota/auth/reset-time sample per language."""
+    sys.path.insert(0, S)
+    import team as T
+    assert {"en", "ru", "es", "pt", "uk"} <= set(T.QUOTA_WORDS)
+    samples = {
+        "en": {"quota": "You have hit your limit for today.",
+               "auth": "Please sign in to continue.",
+               "reset": "limit reached, resets at 03:00"},
+        "ru": {"quota": fixture("ru/quota.txt"), "auth": fixture("ru/auth.txt"),
+               "reset": fixture("ru/reset_in.txt")},
+        "es": {"quota": fixture("es/quota.txt"), "auth": fixture("es/auth.txt"),
+               "reset": fixture("es/reset_at.txt")},
+        "pt": {"quota": fixture("pt/quota.txt"), "auth": fixture("pt/auth.txt"),
+               "reset": fixture("pt/reset_at.txt")},
+        "uk": {"quota": fixture("uk/quota.txt"), "auth": fixture("uk/auth.txt"),
+               "reset": fixture("uk/reset_at.txt")},
+    }
+    for code, s in samples.items():
+        assert T.QUOTA.search(s["quota"]), (code, s["quota"])
+        assert T.AUTH.search(s["auth"]), (code, s["auth"])
+        assert T.reset_time(s["reset"]) is not None, (code, s["reset"])
+    # Both reset paths ("at 03:00" and "in 2h 15m") in every language with fixtures.
+    from datetime import datetime
+    base = datetime(2026, 9, 1, 23, 0)
+    for code in ("ru", "es", "pt", "uk"):
+        assert T.reset_time(fixture(f"{code}/reset_at.txt"), base).strftime("%H:%M") == "03:00", code
+        assert T.reset_time(fixture(f"{code}/reset_in.txt"), base).strftime("%H:%M") == "01:15", code
+
+
+def test_everyday_words_are_not_a_quota():
+    """An ordinary successful short answer must not read as "limit reached" in any language."""
+    sys.path.insert(0, S)
+    import team as T
+    for text in ("La cuota mensual del gimnasio es de 30 euros.",
+                 "Cada cota do fundo vale R$ 100 hoje.",
+                 fixture("uk/not_quota.txt")):
+        assert not T.QUOTA.search(text), text
 
 
 def test_night_begin_arm_hook_end():

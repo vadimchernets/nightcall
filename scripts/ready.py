@@ -69,8 +69,8 @@ def check_awake():
     else:
         row("NOT OK", "Caffeine is not on — the computer will sleep as soon as you step away.",
             "Skill /nightcall:awake 8 (or 12).")
-    row("WATCH", "The laptop lid: a closed lid puts the computer to sleep, and caffeine does not override that.",
-        "Leave the lid open; you can just turn the screen brightness all the way down.")
+    row("WATCH", "The laptop lid: keep it open for the night.",
+        "Turn the screen brightness all the way down instead of closing it.")
 
 
 def check_updates():
@@ -84,7 +84,7 @@ def check_updates():
         else:
             row("OK", "macOS will not reboot overnight on its own for updates.")
     elif SYS == "Windows":
-        row("WATCH", "Windows Update can reboot overnight, and caffeine does not override that.",
+        row("WATCH", "Windows Update can reboot overnight.",
             "Settings → Windows Update → \"Pause for 1 week\".")
     elif SYS == "Linux":
         auto = any("Automatic-Reboot \"true\"" in open(f, errors="ignore").read()
@@ -100,7 +100,7 @@ def check_network():
         socket.create_connection(("api.anthropic.com", 443), timeout=6).close()
         row("OK", "Internet is up, Claude is reachable.")
     except OSError:
-        row("NOT OK", "No connection to Claude — it won't be able to do anything tonight.",
+        row("NOT OK", "No connection to Claude — the night needs it.",
             "Check Wi-Fi; a cable is better.")
     row("WATCH", "Wi-Fi can drop during sleep and when the network changes.",
         "Don't take the computer anywhere; a VPN that drops is better turned off for the night.")
@@ -148,8 +148,8 @@ def check_team(folder):
         if alive or web:
             row("OK", f"Roll call done: {len(alive)} program(s)/key(s) alive, {len(web)} web chat(s) in reserve.")
         else:
-            row("NOT OK", "Roll call: not one other company's helper is alive — the night will run only "
-                "on Claude's own critics.", "Sign in to a program or web chat now and repeat the roll call.")
+            row("NOT OK", "Roll call: not one other company's helper is alive — tonight's second head "
+                "is Claude's own critics.", "Sign in to a program or web chat now and repeat the roll call.")
         if data.get("web_when") == "morning":
             row("OK", "Web chats: in the morning (web: morning) — at night the question for them goes "
                 "into morning-advice.md.")

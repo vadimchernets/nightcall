@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.10 — 2026-10-03
+
+- Wording: no disclaimers. Every message the person or the model reads says what nightcall does, without excuses or
+  apologies: the step-0 line is "nightcall is paused: it starts working the moment this computer has Python 3"; with no
+  helper of another company alive, the roll call says "tonight's second head is Claude's own critics" and offers one fix;
+  the keep-awake scripts and `/nightcall:ready` say "keep the laptop lid open" instead of what caffeine "does not
+  override"; the README's closing note on web services' terms is gone. New `tests/test_no_disclaimers.py` scans every
+  user- and model-facing text for stop phrases ("for now", "honestly", "unfortunately", "not legal advice", "own risk",
+  and their Russian and Ukrainian forms) so they do not come back.
+
 ## 0.3.9 — 2026-10-02
 
 - On Windows the step-0 launcher (`hooks/python.ps1`, and `hooks/python.sh` in Git Bash) also finds a Python installed

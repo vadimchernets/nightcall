@@ -31,9 +31,9 @@ Answer in the person's language.
 3. **Show the script's own lines** — "ON until 07:15" and the warnings under it. Do not
    paraphrase them into something more confident. If it says DID NOT TURN ON, say so.
 
-4. **The three things coffee does NOT cover**, one line each, only the ones that apply:
-   - the laptop lid: closing it puts the computer to sleep anyway — leave it open;
-   - the battery: on battery it will run down by morning — plug in the charger;
-   - system updates can restart the computer at night — pause them for tonight.
+4. **The three things the person sets by hand**, one line each, only the ones that apply:
+   - the laptop lid: leave it open;
+   - the charger: plug it in for the whole night;
+   - system updates: pause them for tonight.
 
 The coffee ends by itself at the end time. Forgetting to switch it off costs nothing.

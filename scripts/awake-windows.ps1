@@ -42,14 +42,14 @@ if ($Status) {
 if ($Stop) {
   $r = Get-Running
   if ($r) { Stop-Process -Id $r.Id -Force; Write-Output 'OFF: caffeine removed, the computer sleeps as usual again.' }
-  else { Write-Output "Caffeine wasn't on anyway." }
+  else { Write-Output "Caffeine is already off." }
   Remove-Item $pidFile, $untilFile -ErrorAction SilentlyContinue
   exit 0
 }
 
 $secs = $Hours * 3600 + $Minutes * 60
 if ($secs -le 0) { Write-Output 'Give a duration: -Hours 8, -Hours 12 or -Minutes 30.'; exit 2 }
-if ($secs -gt 86400) { Write-Output "I won't set more than 24 hours — set it again in the morning."; exit 2 }
+if ($secs -gt 86400) { Write-Output "24 hours at most — set it again in the morning."; exit 2 }
 
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $old = Get-Running
@@ -84,6 +84,6 @@ try {
   if ($bat -and $bat.BatteryStatus -ne 2) { Write-Output '  WARNING: currently on battery — plug in the charger.' }
   else { Write-Output '  power: on mains — good.' }
 } catch { }
-Write-Output '  Do NOT close the laptop lid (or in "Power Options -> Lid close action" choose "Do nothing" for plugged-in power).'
+Write-Output '  Keep the laptop lid open (or in "Power Options -> Lid close action" choose "Do nothing" for plugged-in power).'
 Write-Output '  Windows updates can reboot overnight: Settings -> Windows Update -> "Pause for 1 week", or set an "active hours" window covering the night.'
 Write-Output ('  Turn off earlier: powershell -NoProfile -ExecutionPolicy Bypass -File "{0}" -Stop' -f $PSCommandPath)

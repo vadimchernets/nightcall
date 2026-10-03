@@ -142,7 +142,7 @@ def test_web_marks_summary_and_no_helpers():
     seats = os.path.join(d, "seats.json")
     team(["rollcall", "--out", seats], env)
     r = team(["summary", "--seats", seats], env)
-    assert r.returncode == 1 and "only on Claude's own" in r.stdout, r.stdout   # nobody alive: said honestly
+    assert r.returncode == 1 and "second head is Claude's own critics" in r.stdout, r.stdout   # nobody alive: said plainly
     team(["web-mark", "--seats", seats, "--browser", "alive"], env)
     team(["web-mark", "--seats", seats, "--site", "chatgpt", "--status", "alive"], env)
     team(["web-mark", "--seats", seats, "--site", "gemini", "--status", "needs-sign-in"], env)

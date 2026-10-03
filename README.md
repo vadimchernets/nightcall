@@ -57,9 +57,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\awake-windows.ps1 -H
 | Linux | `systemd-inhibit --what=idle:sleep:handle-lid-switch sleep <seconds>`, then `gnome-session-inhibit`, then a screensaver nudge | yes |
 | Windows | hidden PowerShell holding `SetThreadExecutionState(ES_CONTINUOUS \| ES_SYSTEM_REQUIRED \| ES_DISPLAY_REQUIRED)` | yes |
 
-What coffee does not cover, on any system: a **closed laptop lid** (sleep anyway — leave it open),
-a **battery** running down (plug in), **system updates** that restart at night (pause them for the
-night). `/nightcall:ready` checks what can be checked.
+Three things you set by hand before you leave: the **laptop lid** open, the **charger** plugged in,
+**system updates** paused for the night. `/nightcall:ready` walks you through them.
 
 ## Helper AIs
 
@@ -136,7 +135,3 @@ Stops by itself at the end time, on `MORNING.md`, on a file named `STOP` in the 
 ## License
 
 Apache-2.0. Ideas borrowed from open source are credited in [NOTICE](NOTICE).
-
----
-
-Note: some web services' terms of use are against automated use — that is why web chats are only the reserve by default, and you see the list in the roll call before the night.

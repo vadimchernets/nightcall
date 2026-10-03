@@ -44,7 +44,7 @@ cmd_stop() {
     say "OFF: caffeine removed, the computer sleeps as usual again."
   else
     rm -f "$STATE" "$UNTIL_FILE" "$HOW_FILE"
-    say "Caffeine wasn't on anyway."
+    say "Caffeine is already off."
   fi
 }
 
@@ -69,7 +69,7 @@ start_bg() {  # run "$@" detached in its own process group, print its pid
 cmd_start() {
   secs=$(to_seconds "$1") || { say "Didn't understand the duration \"$1\". Example: 8, 12, 10h or 30m."; exit 2; }
   [ "$secs" -gt 0 ] || { say "The duration must be greater than zero."; exit 2; }
-  if [ "$secs" -gt $((24 * 3600)) ]; then say "I won't set more than 24 hours — set it again in the morning."; exit 2; fi
+  if [ "$secs" -gt $((24 * 3600)) ]; then say "24 hours at most — set it again in the morning."; exit 2; fi
   mkdir -p "$STATE_DIR"
   if running_pid >/dev/null; then cmd_stop >/dev/null; fi
 
@@ -110,8 +110,8 @@ cmd_start() {
   printf '%s' "$until_h" > "$UNTIL_FILE"
   say "ON: the computer will not sleep until $until_h ($((secs / 3600))h $(((secs % 3600) / 60))m), then caffeine comes off by itself."
   say "  how: $how, process $pid"
-  case "$how" in *handle-lid-switch*) say "  The lid can be closed — the lid lock is held. Still more reliable left open.";;
-    *) say "  Do NOT close the laptop lid: a closed lid will put the computer to sleep.";; esac
+  case "$how" in *handle-lid-switch*) say "  The lid can be closed — the lid lock is held.";;
+    *) say "  Keep the laptop lid open for the night.";; esac
   on_ac=""
   for f in /sys/class/power_supply/*/online; do [ -f "$f" ] && [ "$(cat "$f")" = "1" ] && on_ac=1; done
   ls /sys/class/power_supply/BAT* >/dev/null 2>&1 || on_ac=1   # no battery = desktop

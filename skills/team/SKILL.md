@@ -18,7 +18,7 @@ form this skill's permission covers. Only if that path has a space in it, write
 `@'…'@ | ${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1 …` (`| & "…"` if the path has a space) instead of `<<'EOF'` — also asked once.
 Never call `python3`, `python` or `py` yourself: the launcher finds a real Python 3.8+ (`python`,
 then `py -3`, then `python3`) and never starts the Microsoft Store or Apple stub. If it answers
-with one line saying nightcall "is paused" because this computer has no working Python 3 yet, tell the
+with one line saying nightcall "is paused" until this computer has Python 3, tell the
 person that in one plain line and go on by hand — never show them a Python error and stop.
 
 The person said: $ARGUMENTS
@@ -88,7 +88,7 @@ sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/team.py summary
 ```
 Say it as three lines and a to-do: **"Working tonight: …; reserve: …; not working: … — what to do
 now: sign in to …, press …, install …"**. If there is not a single live helper of another company
-(no program, no key, no web chat), say it honestly: "the night will run only on Claude's own
+(no program, no key, no web chat), say it plainly: "tonight's second head is Claude's own
 critics" — and offer to fix one thing before the person leaves. After a fix, run that part again.
 
 Web chats are the **reserve** by default: they are used at night only when the programs and keys

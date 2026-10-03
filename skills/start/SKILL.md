@@ -18,7 +18,7 @@ form this skill's permission covers. Only if that path has a space in it, write
 `@'…'@ | ${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1 …` (`| & "…"` if the path has a space) instead of `<<'EOF'` — also asked once.
 Never call `python3`, `python` or `py` yourself: the launcher finds a real Python 3.8+ (`python`,
 then `py -3`, then `python3`) and never starts the Microsoft Store or Apple stub. If it answers
-with one line saying nightcall "is paused" because this computer has no working Python 3 yet, tell the
+with one line saying nightcall "is paused" until this computer has Python 3, tell the
 person that in one plain line and go on by hand — never show them a Python error and stop.
 
 The person said: $ARGUMENTS
@@ -37,7 +37,7 @@ setting. Everything that needs them happens in the next five minutes, before the
    web chat (ChatGPT, Gemini, Kimi, DeepSeek, Meta AI…) checked one at a time for an input field and
    a test answer; any "Allow" — the person presses it now; c) `team.py summary` — "Working
    tonight: …; reserve: …; not working: … — what to do now". No live helper of another company →
-   say honestly the night will run with Claude's own critics only, and offer one fix before they go.
+   say plainly that tonight's second head is Claude's own critics, and offer one fix before they go.
    d) one choice in the same breath: web chats `night` (default, the reserve) or `morning`
    (`team.py web-when`, `/nightcall:team` §1c).
    e) and one more, with its default said out loud: "Forks in the road usually left to you — does
@@ -130,7 +130,7 @@ and which step is riskiest?" and fold in what holds up. One round, not a debate.
    next. If the folder is under git: one commit per step, the message says what and why.
 7. Mark the step in `PLAN.md` and go straight to the next one.
 
-**Stuck rule.** Three honest attempts at a step without success → mark it "did not work out: <why>",
+**Stuck rule.** Three real attempts at a step without success → mark it "did not work out: <why>",
 write what you tried, and move on to the next step. One stuck step must not eat the night.
 
 **Nobody to ask — a decision that would normally be the person's.** The person chose before

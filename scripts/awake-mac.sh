@@ -46,7 +46,7 @@ cmd_stop() {
     say "OFF: caffeine removed, the Mac sleeps as usual again."
   else
     rm -f "$STATE" "$UNTIL_FILE"
-    say "Caffeine wasn't on anyway."
+    say "Caffeine is already off."
   fi
 }
 
@@ -62,7 +62,7 @@ to_seconds() {
 cmd_start() {
   secs=$(to_seconds "$1") || { say "Didn't understand the duration \"$1\". Example: 8, 12, 10h or 30m."; exit 2; }
   [ "$secs" -gt 0 ] || { say "The duration must be greater than zero."; exit 2; }
-  if [ "$secs" -gt $((24 * 3600)) ]; then say "I won't set more than 24 hours — set it again in the morning."; exit 2; fi
+  if [ "$secs" -gt $((24 * 3600)) ]; then say "24 hours at most — set it again in the morning."; exit 2; fi
   command -v caffeinate >/dev/null 2>&1 || { say "There's no caffeinate on this computer — is this really a Mac?"; exit 3; }
 
   mkdir -p "$STATE_DIR"
@@ -87,9 +87,9 @@ cmd_start() {
   if pmset -g batt 2>/dev/null | head -1 | grep -q "AC Power"; then
     say "  power: on mains — good."
   else
-    say "  WARNING: currently on battery — it may run down overnight, and then the Mac will sleep. Plug in the charger."
+    say "  WARNING: on battery — plug in the charger for the whole night."
   fi
-  say "  Do NOT close the laptop lid: a closed lid puts the Mac to sleep, and caffeine does not override that."
+  say "  Keep the laptop lid open for the night."
   say "  Turn off earlier: bash \"$0\" stop"
 }
 

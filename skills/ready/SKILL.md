@@ -18,7 +18,7 @@ form this skill's permission covers. Only if that path has a space in it, write
 `@'…'@ | ${CLAUDE_PLUGIN_ROOT}/hooks/python.ps1 …` (`| & "…"` if the path has a space) instead of `<<'EOF'` — also asked once.
 Never call `python3`, `python` or `py` yourself: the launcher finds a real Python 3.8+ (`python`,
 then `py -3`, then `python3`) and never starts the Microsoft Store or Apple stub. If it answers
-with one line saying nightcall "is paused" because this computer has no working Python 3 yet, tell the
+with one line saying nightcall "is paused" until this computer has Python 3, tell the
 person that in one plain line and go on by hand — never show them a Python error and stop.
 
 The person said: $ARGUMENTS
@@ -58,8 +58,8 @@ b) the browser: Claude in Chrome connected (switch it on if only the enable tool
    "Allow" or confirmation — **ask the person to press it now**;
 c) `team.py summary` — "Working tonight: …; reserve: …; not working: … — what to do now".
 
-No live helper of another company at all → say that the night will run with Claude's own critics
-only, and offer to fix one thing (sign in, press, install) before the person leaves. Then run
+No live helper of another company at all → say that tonight's second head is Claude's own critics,
+and offer to fix one thing (sign in, press, install) before the person leaves. Then run
 `ready.py` once more: it reads `seats.json` too.
 
 If the person wants the phone to see the night's progress, and the Poly A1 plugin `pocketcall` is

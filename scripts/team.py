@@ -696,8 +696,8 @@ def cmd_summary(args):
                                      "for each decision" if decide_when(seats) == "council" else
                                      "all to the morning — tasks with a question wait for you"))
     if not work and not reserve:
-        print("  Honestly: no other company's helper is alive — the night will run only on Claude's "
-              "own critics (a fresh sub-agent). Better to fix this before you leave:")
+        print("  Tonight's second head is Claude's own critics (a fresh sub-agent). One program or web "
+              "chat signed in now brings in another company:")
     if todo:
         print("  What to do now, while you're still here:")
         for t in todo:
@@ -714,7 +714,7 @@ def cmd_used(args):
     seats = load_seats(args.seats) or {}
     used = seats.get("participated", {})
     if not used:
-        print("No other company's helpers answered tonight — only Claude's own critics worked.")
+        print("Tonight's second head was Claude's own critics: no other company's helper answered.")
         return 1
     for k, n in sorted(used.items(), key=lambda x: -x[1]):
         print(f"  {k} — answers: {n}")

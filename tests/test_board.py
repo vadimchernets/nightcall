@@ -80,7 +80,9 @@ def test_the_night_loop_reports_each_round_and_the_report_at_the_end():
     assert calls, r.stdout + r.stderr
     assert all(c["cmd"] == "put" and c["id"].startswith("nightcall-task-") and c["where"] == "nightcall"
                for c in calls)
-    assert all(c.get("ring") is True and c["folder"] == task and "night-loop.sh" in c["resume"] for c in calls)
+    # the card is data: kind, hours, end - never a command
+    assert all(c.get("ring") is True and c["folder"] == task and c["kind"] == "night" and float(c["hours"]) == 1
+               and float(c["end"]) > 0 and "resume" not in c for c in calls)
     states = [c["state"] for c in calls]
     assert states[0] == "working" and calls[0]["note"].startswith("until ")
     assert [c["note"] for c in calls[1:4]] == ["round 1", "round 2", "round 3"]

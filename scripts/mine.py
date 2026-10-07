@@ -41,8 +41,10 @@ key is read or kept: each program uses its own usual sign-in on this computer.
 
 import argparse
 import datetime
+import re
 import json
 import os
+import select
 import shutil
 import subprocess
 import sys
@@ -174,7 +176,10 @@ def fresh(windows, captured, at):
     for w in windows:
         horizon = captured + FRESH.get(w["type"], FRESH["5h"])
         if w.get("resets"):
-            horizon = min(horizon, w["resets"])
+            # a week's remaining only goes DOWN until its reset: a reading taken at the desk still holds as an upper
+            # bound all night long, so the week's reserve works in a headless night too (claude -p never runs the
+            # status line). A five-hour window refills in its own time, so it keeps its short freshness.
+            horizon = w["resets"] if w["type"] in ("weekly", "monthly") else min(horizon, w["resets"])
         if at <= horizon:
             keep.append(w)
     return keep
@@ -207,14 +212,40 @@ def read_codex(timeout=8):
              "params": {"clientInfo": {"name": "nightcall", "version": "0.5.0"}}},
             {"jsonrpc": "2.0", "method": "initialized", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "account/rateLimits/read", "params": {}}]
+    # the app-server answers only while its stdin stays open: write, keep it open, read until the answer
     try:
-        p = subprocess.run(["codex", "app-server"], input="\n".join(json.dumps(m) for m in msgs) + "\n",
-                           capture_output=True, text=True, timeout=timeout)
-        lines = p.stdout.splitlines()
-    except subprocess.TimeoutExpired as exc:
-        lines = (exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")).splitlines()
+        proc = subprocess.Popen(["codex", "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, text=True)
     except OSError:
         return []
+    lines = []
+    try:
+        for m in msgs:
+            proc.stdin.write(json.dumps(m) + "\n")
+        proc.stdin.flush()
+        end = time.time() + timeout
+        fd, buf = proc.stdout.fileno(), b""
+        while time.time() < end and b'"id":2' not in buf.replace(b" ", b""):
+            ready, _, _ = select.select([fd], [], [], max(0.0, end - time.time()))
+            if not ready:
+                break
+            chunk = os.read(fd, 65536)       # raw reads: a buffered reader would hide a line select cannot see
+            if not chunk:
+                break
+            buf += chunk
+        lines = buf.decode("utf-8", "replace").splitlines()
+    except (OSError, ValueError):
+        pass
+    finally:
+        try:
+            proc.stdin.close()
+        except OSError:
+            pass
+        try:
+            proc.terminate()
+            proc.wait(timeout=2)
+        except (OSError, subprocess.SubprocessError):
+            proc.kill()
     for line in lines:
         try:
             m = json.loads(line)
@@ -273,17 +304,41 @@ def meter(data, live=True):
     return out
 
 
+def phone_lang():
+    """The phone's language: NIGHTCALL_LANG, else pocketcall's (remote.json), else the system's, else English."""
+    code = os.environ.get("NIGHTCALL_LANG", "")
+    if not code:
+        try:
+            pc = os.environ.get("POCKETCALL_HOME") or os.path.expanduser("~/.pocketcall")
+            code = json.load(open(os.path.join(pc, "remote.json"), encoding="utf-8")).get("lang", "")
+        except Exception:
+            code = ""
+    code = (code or os.environ.get("LC_ALL") or os.environ.get("LANG") or "en")[:2].lower()
+    return code if "phone" in T.LANG.get(code, {}) else "en"
+
+
+PHONE_EN = {"switched": "switched to {to} - the work goes on", "rests_until": "{name} rests until {until}",
+            "keeps_week": "{name} keeps {pct}% of the week, back {back}", "left": "{name} {pct}%", "unknown": "{name} ?"}
+
+
+def say(key, **kw):
+    words = T.LANG.get(phone_lang(), {}).get("phone") or T.LANG.get("en", {}).get("phone") or PHONE_EN
+    return (words.get(key) or PHONE_EN[key]).format(**kw)
+
+
 def meter_line(rows):
     parts = []
     for r in rows:
+        name = NAMES[r["engine"]]
         if r["resting_until"] and r.get("why", "").startswith("keeps"):
-            parts.append(f"{NAMES[r['engine']]} {r['why']}, back {r['resting_until'][5:]}")
+            pct = re.sub(r"\D", "", r["why"]) or "20"
+            parts.append(say("keeps_week", name=name, pct=pct, back=r["resting_until"][5:]))
         elif r["resting_until"]:
-            parts.append(f"{NAMES[r['engine']]} rests until {r['resting_until'][-5:]}")
+            parts.append(say("rests_until", name=name, until=r["resting_until"][-5:]))
         elif r["left"] is not None:
-            parts.append(f"{NAMES[r['engine']]} {r['left']}%")
+            parts.append(say("left", name=name, pct=r["left"]))
         else:
-            parts.append(f"{NAMES[r['engine']]} ?")
+            parts.append(say("unknown", name=name))
     return " · ".join(parts)
 
 
@@ -423,10 +478,24 @@ def cmd_engines(_):
     return 0
 
 
-def cmd_capture(_):
-    """statusLine command: keep Claude's own remaining numbers, print one short line, never fail."""
+def cmd_say(a):
+    print(say("switched", to=NAMES.get(a.to, a.to)))
+    return 0
+
+
+def cmd_capture(a):
+    """statusLine command: keep Claude's own remaining numbers, print one short line, never fail. With --then, the
+    person's own status line command gets the same input and its line is printed after ours."""
+    raw = sys.stdin.read() if not sys.stdin.isatty() else ""
+    if a.then:
+        try:
+            p = subprocess.run(a.then, shell=True, input=raw, capture_output=True, text=True, timeout=5)
+            if p.stdout.strip():
+                print(p.stdout.rstrip())
+        except (OSError, subprocess.SubprocessError):
+            pass
     try:
-        payload = json.loads(sys.stdin.read() or "{}")
+        payload = json.loads(raw or "{}")
         block = next((payload[k] for k in ("rate_limits", "rateLimits") if isinstance(payload.get(k), dict)), None)
         ws = windows_of(block) if block else []
         if ws:
@@ -463,11 +532,15 @@ def main(argv=None):
     p.add_argument("--to", required=True)
     sub.add_parser("soonest")
     sub.add_parser("engines")
-    sub.add_parser("capture")
+    p = sub.add_parser("capture")
+    p.add_argument("--then", default="", help="your own status line command: same input, its line too")
+    p = sub.add_parser("say")
+    p.add_argument("what", choices=("switched",))
+    p.add_argument("--to", required=True)
     a = ap.parse_args(argv)
     return {"on": cmd_on, "off": cmd_off, "status": cmd_status, "meter": cmd_meter, "pick": cmd_pick,
             "limit": cmd_limit, "relay": cmd_relay, "soonest": cmd_soonest, "engines": cmd_engines,
-            "capture": cmd_capture}[a.cmd](a)
+            "capture": cmd_capture, "say": cmd_say}[a.cmd](a)
 
 
 if __name__ == "__main__":

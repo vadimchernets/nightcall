@@ -47,7 +47,7 @@ sign-in on this computer; nothing about logins moves.
 
 3. **The remaining-% sensor for Claude** (once): Claude Code tells how much of the five-hour and weekly limits is left
    only to its status line. Add to `~/.claude/settings.json` (keep any statusLine the person already has - then
-   say so and leave theirs; the move then happens on the limit message, which works too):
+   chain theirs: `mine.py capture --then "<their command>"` prints their line too):
    ```json
    "statusLine": {"type": "command", "command": "python3 \"<real path of ${CLAUDE_PLUGIN_ROOT}>/scripts/mine.py\" capture"}
    ```

@@ -34,5 +34,12 @@
   ],
   "reset_in_min": [
     "хв\\w*"
-  ]
+  ],
+  "phone": {
+    "switched": "перемкнувся на {to} — робота йде",
+    "rests_until": "{name} відпочиває до {until}",
+    "keeps_week": "{name} тримає {pct}% тижня, повернеться {back}",
+    "left": "{name} {pct}%",
+    "unknown": "{name} ?"
+  }
 }

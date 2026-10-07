@@ -70,5 +70,12 @@
     "morning_advice_file": "утро-совет.md",
     "blind_key_file": ".кто-есть-кто.json",
     "answer_prefix": "ответ-"
+  },
+  "phone": {
+    "switched": "переключился на {to} — работа идёт",
+    "rests_until": "{name} отдыхает до {until}",
+    "keeps_week": "{name} держит {pct}% недели, вернётся {back}",
+    "left": "{name} {pct}%",
+    "unknown": "{name} ?"
   }
 }

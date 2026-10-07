@@ -40,5 +40,12 @@
   "reset_in_min": [
     "m",
     "min\\w*"
-  ]
+  ],
+  "phone": {
+    "switched": "cambió a {to}: el trabajo sigue",
+    "rests_until": "{name} descansa hasta las {until}",
+    "keeps_week": "{name} guarda el {pct}% de la semana, vuelve {back}",
+    "left": "{name} {pct}%",
+    "unknown": "{name} ?"
+  }
 }

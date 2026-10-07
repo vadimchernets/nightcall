@@ -41,5 +41,12 @@
   "reset_in_min": [
     "m",
     "min\\w*"
-  ]
+  ],
+  "phone": {
+    "switched": "switched to {to} - the work goes on",
+    "rests_until": "{name} rests until {until}",
+    "keeps_week": "{name} keeps {pct}% of the week, back {back}",
+    "left": "{name} {pct}%",
+    "unknown": "{name} ?"
+  }
 }

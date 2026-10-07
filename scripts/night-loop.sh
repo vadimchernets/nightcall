@@ -95,7 +95,9 @@ elif [ "${NIGHTCALL_MINE:-on}" != off ] && python3 "$here/mine.py" status --quie
 board() {
   local m=""
   [ "$mine" = 1 ] && m=$(python3 "$here/mine.py" meter 2>/dev/null)
-  python3 "$here/night.py" board --dir "$folder" --resume "bash \"$here/night-loop.sh\" \"$folder\" $hours" ${m:+--meter "$m"} "$@" </dev/null >/dev/null 2>&1 || true
+  # the card holds data, not a command: pocketcall's Continue rebuilds the loop's argv itself (no shell)
+  python3 "$here/night.py" board --dir "$folder" --kind night --hours "$hours" --end "$end" \
+    ${NIGHTCALL_BOX:+--box} ${m:+--meter "$m"} "$@" </dev/null >/dev/null 2>&1 || true
 }
 
 bash "$here/awake.sh" "$hours" | tee -a "$log"
@@ -137,7 +139,8 @@ step() {
     settings=$(python3 "$here/family.py" settings --id "$who" 2>/dev/null)
   fi
   if [ "$engine" = gemini ]; then
-    (cd "$folder" && gemini -p "$1" --yolo 2>&1)
+    # --sandbox: Gemini CLI's own sandbox (Seatbelt on a Mac), as Codex runs in its --full-auto workspace sandbox
+    (cd "$folder" && env $strip gemini -p "$1" --yolo --sandbox 2>&1)
   elif [ "$engine" = codex ]; then
     (cd "$folder" && env $strip ${cfg:+"CODEX_HOME=$cfg"} codex exec --full-auto "$1" 2>&1)
   else
@@ -146,7 +149,7 @@ step() {
 }
 # a limit is a failed round that says so, or a short answer that is only that (as team.py classify)
 is_limit() {
-  printf '%s' "$out" | grep -qiE "usage limit|limit reached|rate.?limit|hit your limit|resets? (at|in)" || return 1
+  printf '%s' "$out" | grep -qiE "usage limit|limit reached|rate.?limit|hit your limit|resets? (at|in)|quota|RESOURCE_EXHAUSTED|\b429\b" || return 1
   [ "$rc" -ne 0 ] || [ "${#out}" -lt 300 ]
 }
 
@@ -196,7 +199,7 @@ EOF_PICK
     if [ "$pick" != "$prev" ]; then
       line=$(python3 "$here/mine.py" relay --folder "$folder" --from "$prev" --to "$pick")
       echo "$line" | tee -a "$log"
-      board --state working --say --note "switched to $pick - the work goes on"
+      board --state working --say --note "$(python3 "$here/mine.py" say switched --to "$pick")"
     fi
     engine=$pick; name="mine"
   fi
@@ -214,7 +217,7 @@ EOF_PICK
     printf '%s' "$out" | python3 "$here/mine.py" limit --engine "$engine" | tee -a "$log"
     round=$((round - 1))
     sleep 5
-  elif printf '%s' "$out" | grep -qiE "usage limit|limit reached|rate.?limit|hit your limit|resets? (at|in)"; then
+  elif printf '%s' "$out" | grep -qiE "usage limit|limit reached|rate.?limit|hit your limit|resets? (at|in)|quota|RESOURCE_EXHAUSTED|\b429\b"; then
     echo "$(date '+%F %T') subscription limit — waiting $((limit_wait / 60)) min and trying again" | tee -a "$log"
     if [ "$rc" -ne 0 ] || [ "${#out}" -lt 300 ]; then   # a real limit line, not work that mentions limits
       board --state limit --rest "$limit_wait" --note "the subscription rests; the night goes on by itself"

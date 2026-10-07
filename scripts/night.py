@@ -7,7 +7,7 @@
     python3 night.py status
     python3 night.py end
     python3 night.py board --dir <task folder> --state working|limit|done|failed [--note <text>] [--rest <seconds>]
-                           [--resume <command>] [--meter <left % line>] [--say]
+                           [--kind night --hours N --end <epoch> [--box]] [--meter <left % line>] [--say]
 
 `begin` creates the task folder with TASK.md (the person's words, as given), a PLAN.md and a
 PROGRESS.md skeleton if they are not there yet, and ALWAYS puts the night on a safety net, without
@@ -230,7 +230,9 @@ def cmd_board(a):
     if script:
         cmd = [sys.executable, script, "put", "--id", job_id, "--name", name, "--where", "nightcall",
                "--state", a.state, "--note", a.note, "--until", until, "--ring"]   # a night rings, away or not
-        extra = ["--folder", folder, "--resume", a.resume, "--meter", a.meter] + (["--say"] if a.say else [])
+        extra = ["--folder", folder, "--meter", a.meter] + (["--say"] if a.say else []) + \
+            (["--kind", a.kind, "--hours", str(a.hours), "--end", str(a.end)] if a.kind else []) + \
+            (["--box"] if a.box else [])
         try:
             r = subprocess.run(cmd + extra, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                stderr=subprocess.DEVNULL, timeout=30)
@@ -247,7 +249,8 @@ def cmd_board(a):
         with open(path + ".tmp", "w", encoding="utf-8") as fh:
             json.dump({"id": job_id, "name": name, "where": "nightcall", "state": a.state,
                        "note": " ".join(a.note.split())[:160], "until": until, "at": time.time(),
-                       "folder": folder, "resume": a.resume, "meter": a.meter},
+                       "folder": folder, "kind": a.kind, "hours": a.hours, "end": a.end, "box": bool(a.box),
+                       "meter": a.meter},
                       fh, ensure_ascii=False)
         os.chmod(path + ".tmp", 0o600)
         os.replace(path + ".tmp", path)
@@ -274,7 +277,10 @@ def main(argv=None):
     o.add_argument("--state", required=True, choices=("working", "limit", "done", "failed"))
     o.add_argument("--note", default="")
     o.add_argument("--rest", type=int, default=0, help="seconds until the night goes on (a limit)")
-    o.add_argument("--resume", default="", help="the command that goes on with the night (the phone's Continue)")
+    o.add_argument("--kind", default="", help="night: the phone's Continue restarts this loop (pocketcall builds it)")
+    o.add_argument("--hours", type=float, default=0)
+    o.add_argument("--end", type=float, default=0, help="when the night ends (seconds since 1970)")
+    o.add_argument("--box", action="store_true", help="the night runs in the box: Continue keeps it there")
     o.add_argument("--meter", default="", help="how much each subscription has left, one line")
     o.add_argument("--say", action="store_true", help="ring this line now even if the state did not change")
     a = ap.parse_args(argv)

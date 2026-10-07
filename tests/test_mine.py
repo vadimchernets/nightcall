@@ -19,13 +19,19 @@ from test_family import S, world  # noqa: E402
 FAKE = r"""#!/bin/bash
 me=$(basename "$0")
 if [ "$me" = codex ] && [ "$1" = app-server ]; then
+  # like the real app-server: it answers only while its stdin is still open - at EOF it exits without a word
   while read -r line; do
     case "$line" in
       *'"id": 1'*) echo '{"jsonrpc":"2.0","id":1,"result":{}}';;
-      *'"id": 2'*) echo "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"rateLimits\":{\"primary\":{\"usedPercent\":${CODEX_USED:-20},\"windowDurationMins\":300,\"resetsAt\":$(( $(date +%s) + 3600 ))},\"secondary\":{\"usedPercent\":5,\"windowDurationMins\":10080}}}}"; exit 0;;
+      *'"id": 2'*)
+        python3 -c "import os, select, sys; r = select.select([0], [], [], 0.5)[0]; sys.exit(1 if r and os.read(0, 1) == b'' else 0)" || exit 0
+        echo "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"rateLimits\":{\"primary\":{\"usedPercent\":${CODEX_USED:-20},\"windowDurationMins\":300,\"resetsAt\":$(( $(date +%s) + 3600 ))},\"secondary\":{\"usedPercent\":5,\"windowDurationMins\":10080}}}}"; exit 0;;
     esac
   done
   exit 0
+fi
+if [ "$me" = gemini ] && [ -f "$MARKS/gemini-quota" ]; then
+  echo "Error: [API Error: {\"error\":{\"code\":429,\"message\":\"Quota exceeded for quota metric 'Gemini 2.5 Pro Requests'\",\"status\":\"RESOURCE_EXHAUSTED\"}}]"; exit 1
 fi
 if [ -f "$MARKS/$me-limited" ]; then echo "You've hit your usage limit - resets 3am"; exit 1; fi
 echo "round by $me" >> rounds.txt
@@ -43,7 +49,7 @@ def setup():
         path = os.path.join(bindir, name)
         open(path, "w").write(FAKE)
         os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
-    env.update({"MARKS": marks, "NIGHTCALL_FAMILY": "off", "NIGHTCALL_LIMIT_WAIT": "2"})
+    env.update({"MARKS": marks, "NIGHTCALL_FAMILY": "off", "NIGHTCALL_LIMIT_WAIT": "2", "NIGHTCALL_LANG": "en"})
     return env, home, root, marks
 
 
@@ -177,7 +183,7 @@ def test_the_board_hears_the_switch_and_the_meter():
     loop(env, root)
     lines = [json.loads(x) for x in open(env["BOARD_LOG"]).read().splitlines()]
     said = [x for x in lines if "--say" in x]
-    assert said and "switched to codex - the work goes on" in said[0][said[0].index("--note") + 1]
+    assert said and "switched to Codex - the work goes on" in said[0][said[0].index("--note") + 1], json.dumps(said)
     meters = [x[x.index("--meter") + 1] for x in lines if "--meter" in x]
     assert any("Claude rests until 03:00" in m for m in meters), meters
 
@@ -222,3 +228,52 @@ def test_above_the_reserve_and_with_reserve_zero_claude_works_on():
     mine(env, "on", "--reserve", "0")
     week_low(env, used=95)                          # 5% of the week, reserve off: spend it
     assert mine(env, "pick").stdout.strip() == "claude"
+
+
+def test_codex_is_read_with_its_stdin_open_and_answers_nothing_once_it_is_closed():
+    env, home, root, marks = setup()
+    mine(env, "on", "--order", "codex")
+    env["CODEX_USED"] = "30"
+    rows = json.loads(mine(env, "meter", "--json").stdout)
+    assert rows[0]["left"] == 70 and rows[0]["window"] == "5h"
+    # the old way - everything written and stdin closed at once - gets no answer from such a server
+    p = subprocess.run(["codex", "app-server"], input='{"id": 1}\n{"id": 2}\n', capture_output=True, text=True, env=env)
+    assert '"id":2' not in p.stdout
+
+
+def test_gemini_s_quota_message_is_a_limit_and_the_night_moves_on():
+    env, home, root, marks = setup()
+    env["NIGHTCALL_MINE_CODEX_READ"] = "off"
+    mine(env, "on", "--order", "gemini,claude")
+    open(os.path.join(marks, "gemini-quota"), "w").write("1")
+    task, r = loop(env, root)
+    assert rounds(task) == ["round by claude"] * 3, r.stdout + r.stderr
+    assert "Gemini: limit" in open(os.path.join(task, "PROGRESS.md")).read()
+
+
+def test_a_week_reading_from_the_desk_holds_all_night_until_its_reset():
+    env, home, root, marks = setup()
+    env["NIGHTCALL_MINE_CODEX_READ"] = "off"
+    mine(env, "on")
+    os.makedirs(os.path.join(home, "quota"))
+    reset = time.time() + 2 * 86400
+    json.dump({"at": time.time() - 10 * 3600, "windows": [{"type": "weekly", "left": 12, "resets": reset},
+                                                         {"type": "5h", "left": 90, "resets": None}]},
+              open(os.path.join(home, "quota", "claude.json"), "w"))
+    assert mine(env, "pick").stdout.strip() == "codex"     # 10 h old, but the week only shrinks until its reset
+
+
+def test_the_phone_hears_the_switch_in_its_own_language():
+    env, home, root, marks = setup()
+    env["NIGHTCALL_LANG"] = "ru"
+    r = mine(env, "say", "switched", "--to", "codex")
+    assert r.stdout.strip() == "\u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0438\u043b\u0441\u044f \u043d\u0430 Codex \u2014 \u0440\u0430\u0431\u043e\u0442\u0430 \u0438\u0434\u0451\u0442"
+    env["NIGHTCALL_LANG"] = "en"
+    assert mine(env, "say", "switched", "--to", "gemini").stdout.strip() == "switched to Gemini - the work goes on"
+
+
+def test_capture_keeps_the_person_s_own_status_line():
+    env, home, root, marks = setup()
+    payload = {"rate_limits": {"five_hour": {"used_percentage": 50}}}
+    r = mine(env, "capture", "--then", "echo my-own-line", inp=json.dumps(payload))
+    assert r.stdout.splitlines()[0] == "my-own-line" and "Claude 50% left" in r.stdout

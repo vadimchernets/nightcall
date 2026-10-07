@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 — 2026-10-07
+
+- Family relay (`scripts/family.py`, skill `/nightcall:family`), the family profiles of PolyHelper V1 brought to the
+  night loop. Each member is added with their own e-mail and their own sign-in folder (`CLAUDE_CONFIG_DIR`, or
+  `CODEX_HOME` with `--engine codex`), signs in there once with the vendor's own login, and gives a standing consent
+  until a time they choose. In `night-loop.sh` a spent limit no longer means a 15-minute wait: the reset time is
+  noted for that account, the next member whose folder is signed in as their named account takes the next round,
+  and PROGRESS.md gets a "Relay" line. Everyone resting: the loop waits for the first account to come back. The family
+  wording is V1's (`family-handoff.mjs` DISCLOSURE), word for word. Without `family.json`, or with
+  `NIGHTCALL_FAMILY=off`, the loop is the same as in 0.3.10. Tests: `tests/test_family.py` (fake `claude`, including a
+  full weekend loop run that hands over from Dad to Son).
+
 ## 0.3.10 — 2026-10-03
 
 - Wording: no disclaimers. Every message the person or the model reads says what nightcall does, without excuses or

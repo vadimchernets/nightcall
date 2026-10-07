@@ -42,6 +42,7 @@ it and deletes their saved data.
 | `/nightcall:awake 8` · `12` · `stop` | Coffee for the computer: Mac, Linux or Windows, no admin rights, switches itself off. |
 | `/nightcall:team` | Which other AIs are alive tonight; dead ones are replaced; no programs → free web chats in the browser. |
 | `/nightcall:ready` | The checklist before leaving: power, lid, updates, network, disk, permissions, limits. |
+| `/nightcall:family` | The family relay: when one person's limit runs out, the next family member's own account carries the night or the weekend on. |
 | `/nightcall:morning` | `MORNING.md`: done / not done / check first / decided without you. Switches everything off. |
 
 ## Coffee on its own (no Claude needed)
@@ -124,6 +125,26 @@ bash scripts/night-loop.sh "<task folder>" 8
 
 Stops by itself at the end time, on `MORNING.md`, on a file named `STOP` in the folder, or at
 `NIGHTCALL_MAX_ROUNDS` (60). Permission mode: `NIGHTCALL_PERMISSION_MODE` (default `auto`).
+
+## The family relay: the weekend goes on
+
+A family (or a family team) leaves for the weekend with a task running. When Dad's subscription runs
+out on Saturday morning, the loop does not wait until it comes back: the next round runs in Son's own
+account, the one Son signed in to himself, and so on through everyone who said yes. The context moves,
+the access never does - the task lives in TASK.md, PLAN.md and PROGRESS.md, every member's sign-in
+stays in their own Claude Code folder (`CLAUDE_CONFIG_DIR`; `CODEX_HOME` for a Codex subscription).
+
+```
+python3 scripts/family.py add --name Dad --email dad@example.com --config-dir default
+python3 scripts/family.py add --name Son --email son@example.com      # prints Son's one sign-in command
+python3 scripts/family.py consent --name Son --by Son --until "2026-10-12 09:00"
+python3 scripts/family.py check                                        # who is really signed in where
+NIGHTCALL_MAX_ROUNDS=400 bash scripts/night-loop.sh "<task folder>" 60
+```
+
+Before each change of hands the loop asks the vendor's CLI who is signed in in that member's folder
+and takes only the account the member named. Every change is a "Relay" line in PROGRESS.md and in
+`~/.nightcall/family-log.jsonl`; `/nightcall:morning` lists it under "Who took part".
 
 ## Principles
 

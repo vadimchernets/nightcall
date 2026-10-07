@@ -520,7 +520,7 @@ def test_ready_runs():
 def test_manifest_and_skills():
     m = json.load(open(os.path.join(ROOT, ".claude-plugin", "plugin.json")))
     assert m["name"] == "nightcall"
-    for s in ("start", "awake", "team", "ready", "morning"):
+    for s in ("start", "awake", "team", "ready", "morning", "family"):
         text = open(os.path.join(ROOT, "skills", s, "SKILL.md"), encoding="utf-8").read()
         assert text.startswith("---\nname: %s\n" % s), s
     json.load(open(os.path.join(ROOT, "hooks", "hooks.json")))

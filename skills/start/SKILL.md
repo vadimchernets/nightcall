@@ -87,7 +87,8 @@ setting. Everything that needs them happens in the next five minutes, before the
    ```
    bash "${CLAUDE_PLUGIN_ROOT}/scripts/night-loop.sh" "<folder>" <H>
    ```
-   run in a separate terminal (Mac/Linux; on Windows from Git Bash or WSL).
+   run in a separate terminal (Mac/Linux; on Windows from Git Bash or WSL). With a family set up
+   (`/nightcall:family`) the loop does not wait out a limit: the next member's own account takes the next step.
 
 7. **The team, once more if something was fixed.** If the person signed in or installed
    something after step 0, re-run that part of the roll call so `seats.json` is true.

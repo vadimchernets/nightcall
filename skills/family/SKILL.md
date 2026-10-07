@@ -41,11 +41,14 @@ sign-in stays in their own folder; nightcall never touches it.
    Show the script's lines as they are - they include the family wording and the one sign-in command. The member
    runs that command themselves, in a terminal, once (it opens the vendor's own sign-in page).
 
-3. **The member says until when their account carries the work on** - the weekend, the week, the night:
+3. **The member says until when their account carries the work on** - the weekend, the week, the night. The member
+   runs this in their own terminal, after signing in in step 2 (show it with `${CLAUDE_PLUGIN_ROOT}` written out as
+   its real path; it asks them to type their name, so it runs only there):
    ```
-   sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/family.py consent --name "<name>" --by "<name>" --until "YYYY-MM-DD HH:MM"
+   sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/family.py consent --name "<name>" --by "<name>" --until "YYYY-MM-DD HH:MM" --folder "<task folder>"
    ```
-   `--folder "<task folder>"` narrows it to one task. `revoke --name "<name>"` ends it at once.
+   It shows TASK.md and PLAN.md of that folder first. Without `--folder` it covers every family run. `revoke --name
+   "<name>"` ends it at once.
 
 4. **Check that everyone is really signed in as themselves:**
    ```

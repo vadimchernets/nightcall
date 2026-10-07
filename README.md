@@ -137,7 +137,7 @@ stays in their own Claude Code folder (`CLAUDE_CONFIG_DIR`; `CODEX_HOME` for a C
 ```
 python3 scripts/family.py add --name Dad --email dad@example.com --config-dir default
 python3 scripts/family.py add --name Son --email son@example.com      # prints Son's one sign-in command
-python3 scripts/family.py consent --name Son --by Son --until "2026-10-12 09:00"
+python3 scripts/family.py consent --name Son --by Son --until "2026-10-12 09:00"   # Son, in his terminal
 python3 scripts/family.py check                                        # who is really signed in where
 NIGHTCALL_MAX_ROUNDS=400 bash scripts/night-loop.sh "<task folder>" 60
 ```

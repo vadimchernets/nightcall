@@ -11,6 +11,14 @@
   wording is V1's (`family-handoff.mjs` DISCLOSURE), word for word. Without `family.json`, or with
   `NIGHTCALL_FAMILY=off`, the loop is the same as in 0.3.10. Tests: `tests/test_family.py` (fake `claude`, including a
   full weekend loop run that hands over from Dad to Son).
+- Family rounds run on the member's own sign-in only: `night-loop.sh` starts them with `env -u ANTHROPIC_API_KEY -u
+  ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN -u OPENAI_API_KEY -u CODEX_API_KEY` and with Claude Code
+  `--settings` from `family.py settings` (deny Read/Edit of `~/.nightcall/family/**`, the family list and log, the other
+  members' sign-in folders). Consent is typed by the member in their own terminal (`/dev/tty`), only once their folder
+  is signed in as them, after TASK.md and PLAN.md are on screen; the record is signed with the member's key in
+  `~/.nightcall/family/<id>/consent.key`, and an unsigned or edited record counts as no consent. Family folders 0700,
+  files 0600. A long answer that only mentions a rate limit no longer counts as a limit; with no claude and no Codex
+  member the loop exits with code 3, as before.
 
 ## 0.3.10 — 2026-10-03
 

@@ -24,7 +24,14 @@ folder=${1:?"Give the task folder: bash night-loop.sh <folder> [hours]"}
 hours=${2:-8}
 case "$hours" in ''|*[!0-9]*) echo "Hours must be a whole number, e.g. 8 or 12."; exit 2;; esac
 [ -f "$folder/PLAN.md" ] || { echo "No PLAN.md in $folder — /nightcall:start writes the plan first."; exit 2; }
-command -v claude >/dev/null 2>&1 || command -v codex >/dev/null 2>&1 || { echo "The claude command was not found."; exit 3; }
+if ! command -v claude >/dev/null 2>&1; then
+  # a family whose members work in Codex runs without claude; anyone else needs it
+  engines=""; [ "${NIGHTCALL_FAMILY:-on}" = off ] || engines=$(python3 "$(dirname "$0")/family.py" engines 2>/dev/null)
+  case " $engines " in
+    *" codex "*) command -v codex >/dev/null 2>&1 || { echo "The claude command was not found."; exit 3; };;
+    *) echo "The claude command was not found."; exit 3;;
+  esac
+fi
 
 here=$(cd "$(dirname "$0")" && pwd)
 folder=$(cd "$folder" && pwd)
@@ -95,13 +102,26 @@ if [ "${NIGHTCALL_FAMILY:-on}" != off ] && python3 "$here/family.py" status >/de
 fi
 who=""; engine=claude; cfg=""; name=""
 
-# one round in the current hands: claude (or codex) in the member's own sign-in folder
+# one round in the current hands: claude (or codex) in the member's own sign-in folder. In the family
+# a round carries no key or token from this environment - only the member's own sign-in - and its
+# Claude Code settings keep it out of the family's own places (family.py settings).
+keys_out="-u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN -u OPENAI_API_KEY -u CODEX_API_KEY"
 step() {
-  if [ "$engine" = codex ]; then
-    (cd "$folder" && env ${cfg:+"CODEX_HOME=$cfg"} codex exec --full-auto "$1" 2>&1)
-  else
-    (cd "$folder" && env ${cfg:+"CLAUDE_CONFIG_DIR=$cfg"} claude -p "$1" --permission-mode "$mode" ${NIGHTCALL_MODEL:+--model "$NIGHTCALL_MODEL"} 2>&1)
+  local strip="" settings=""
+  if [ "$family" = 1 ]; then
+    strip=$keys_out
+    settings=$(python3 "$here/family.py" settings --id "$who" 2>/dev/null)
   fi
+  if [ "$engine" = codex ]; then
+    (cd "$folder" && env $strip ${cfg:+"CODEX_HOME=$cfg"} codex exec --full-auto "$1" 2>&1)
+  else
+    (cd "$folder" && env $strip ${cfg:+"CLAUDE_CONFIG_DIR=$cfg"} claude -p "$1" --permission-mode "$mode" ${settings:+--settings "$settings"} ${NIGHTCALL_MODEL:+--model "$NIGHTCALL_MODEL"} 2>&1)
+  fi
+}
+# a limit is a failed round that says so, or a short answer that is only that (as team.py classify)
+is_limit() {
+  printf '%s' "$out" | grep -qiE "usage limit|limit reached|rate.?limit|hit your limit|resets? (at|in)" || return 1
+  [ "$rc" -ne 0 ] || [ "${#out}" -lt 300 ]
 }
 
 round=0
@@ -135,7 +155,7 @@ EOF_PICK
   out=$(step "$prompt")
   rc=$?
   printf '%s\n' "$out" | tail -20 >> "$log"
-  if [ "$family" = 1 ] && printf '%s' "$out" | grep -qiE "usage limit|limit reached|rate.?limit|hit your limit|resets? (at|in)"; then
+  if [ "$family" = 1 ] && is_limit; then
     printf '%s' "$out" | python3 "$here/family.py" limit --id "$who" | tee -a "$log"
     round=$((round - 1))
     sleep 5

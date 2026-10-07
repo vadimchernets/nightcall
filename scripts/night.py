@@ -6,6 +6,7 @@
     python3 night.py arm   --dir <task folder> --hours 8 --session <id> [--max-rounds 200]   # the person has left
     python3 night.py status
     python3 night.py end
+    python3 night.py board --dir <task folder> --state working|limit|done|failed [--note <text>] [--rest <seconds>]
 
 `begin` creates the task folder with TASK.md (the person's words, as given), a PLAN.md and a
 PROGRESS.md skeleton if they are not there yet, and ALWAYS puts the night on a safety net, without
@@ -16,11 +17,19 @@ work only inside this folder (course step "Fence and time machine"). `arm` - sai
 time, bound to the session that started the night (`--session`, the hook's session_id), so another
 Claude Code window open the same evening is never caught. They are separate on purpose: while the
 person is still here, a turn that ends with a question to them must be allowed to end. `end`
-removes the switch. Nothing outside the task folder and ~/.nightcall is touched.
+removes the switch. `board` puts the night on pocketcall's board (one line per night: working, resting on
+a limit until a given hour, done), so the phone sees it next to every other job and rings when the night
+rests or ends; without pocketcall the line waits in ~/.pocketcall/board for it. NIGHTCALL_BOARD=off
+leaves the board alone, NIGHTCALL_BOARD=<path to board.py> names pocketcall's script. Apart from that
+line, nothing outside the task folder and ~/.nightcall is touched.
 """
 
 import argparse
 import datetime
+import glob
+import hashlib
+import re
+import time
 import json
 import os
 import shutil
@@ -191,6 +200,56 @@ def cmd_end(_):
     return 0
 
 
+def board_script():
+    """pocketcall's board.py: NIGHTCALL_BOARD, or the newest installed pocketcall plugin."""
+    named = os.environ.get("NIGHTCALL_BOARD", "")
+    if named:
+        return named if os.path.isfile(named) else ""
+    roots = [os.path.expanduser("~/.claude")]
+    if os.environ.get("CLAUDE_CONFIG_DIR"):
+        roots.insert(0, os.environ["CLAUDE_CONFIG_DIR"])
+    found = [f for r in roots for f in glob.glob(os.path.join(r, "plugins", "cache", "*", "pocketcall", "*",
+                                                                 "scripts", "board.py"))]
+    return max(found, key=os.path.getmtime) if found else ""
+
+
+def cmd_board(a):
+    """One line for the night on pocketcall's board. Never stops the night: any trouble is silent."""
+    if os.environ.get("NIGHTCALL_BOARD", "").lower() == "off":
+        return 0
+    folder = os.path.abspath(a.dir)
+    name = "night run: " + (os.path.basename(folder) or folder)
+    # two nights in two folders of the same name are two lines
+    job_id = ("nightcall-" + (re.sub(r"[^A-Za-z0-9_-]", "-", os.path.basename(folder))[:40] or "night")
+              + "-" + hashlib.sha1(folder.encode("utf-8")).hexdigest()[:6])
+    until = ""
+    if a.rest and a.rest > 0:
+        until = (datetime.datetime.now() + datetime.timedelta(seconds=a.rest)).strftime("%H:%M")
+    script = board_script()
+    if script:
+        cmd = [sys.executable, script, "put", "--id", job_id, "--name", name, "--where", "nightcall",
+               "--state", a.state, "--note", a.note, "--until", until, "--ring"]   # a night rings, away or not
+        try:
+            subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           timeout=30)
+            return 0
+        except (OSError, subprocess.SubprocessError):
+            pass
+    base = os.path.join(os.environ.get("POCKETCALL_HOME") or os.path.expanduser("~/.pocketcall"), "board")
+    try:
+        os.makedirs(base, exist_ok=True)
+        path = os.path.join(base, job_id + ".json")
+        with open(path + ".tmp", "w", encoding="utf-8") as fh:
+            json.dump({"id": job_id, "name": name, "where": "nightcall", "state": a.state,
+                       "note": " ".join(a.note.split())[:160], "until": until, "at": time.time()},
+                      fh, ensure_ascii=False)
+        os.chmod(path + ".tmp", 0o600)
+        os.replace(path + ".tmp", path)
+    except OSError:
+        pass
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Nightcall: open and close the night.")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -204,8 +263,14 @@ def main(argv=None):
     r.add_argument("--session", default="", help="session_id of the window that started the night (${CLAUDE_SESSION_ID})")
     sub.add_parser("status")
     sub.add_parser("end")
+    o = sub.add_parser("board")
+    o.add_argument("--dir", required=True)
+    o.add_argument("--state", required=True, choices=("working", "limit", "done", "failed"))
+    o.add_argument("--note", default="")
+    o.add_argument("--rest", type=int, default=0, help="seconds until the night goes on (a limit)")
     a = ap.parse_args(argv)
-    return {"begin": cmd_begin, "arm": cmd_arm, "status": cmd_status, "end": cmd_end}[a.cmd](a)
+    return {"begin": cmd_begin, "arm": cmd_arm, "status": cmd_status, "end": cmd_end,
+            "board": cmd_board}[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -55,7 +55,8 @@ def world():
         fh.write(FAKE_CLAUDE)
     os.chmod(fake, os.stat(fake).st_mode | stat.S_IEXEC)
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_CONFIG_DIR", "CODEX_HOME", "NIGHTCALL_FAMILY")}
-    env.update({"NIGHTCALL_HOME": home, "FAKE_DEFAULT_CFG": dflt, "PATH": bindir + os.pathsep + env.get("PATH", "")})
+    env.update({"NIGHTCALL_HOME": home, "FAKE_DEFAULT_CFG": dflt, "PATH": bindir + os.pathsep + env.get("PATH", ""),
+                "NIGHTCALL_BOARD": "off", "POCKETCALL_HOME": os.path.join(root, "pocketcall")})
     return env, home, bindir, root
 
 

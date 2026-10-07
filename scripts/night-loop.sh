@@ -17,6 +17,9 @@
 # does not mean waiting - the next round runs in the next family member's own sign-in folder
 # (CLAUDE_CONFIG_DIR / CODEX_HOME), and the change of hands is written into PROGRESS.md. NIGHTCALL_FAMILY=off
 # runs the night on this computer's usual sign-in only.
+# The board: with pocketcall the night is one line on its board (working / resting on a limit until HH:MM /
+# done), the phone sees it next to every other job and rings when the night rests or ends (night.py board;
+# NIGHTCALL_BOARD=off leaves the board alone).
 # Model: NIGHTCALL_MODEL (default: whatever Claude Code uses). On Windows run it from Git Bash or WSL; the plain Claude Code session (/nightcall:start) works anywhere.
 set -u
 
@@ -78,6 +81,8 @@ else
   decide_rule="A fork in the road that the person usually decides: decide it with the AI council (team.py ask — other companies, then its own critics), without stopping: make it a SEPARATE commit and write it down: python3 \"$here/team.py\" decide --dir \"$folder\" --what \"<what was decided>\" --why \"<why>\" --who \"<who advised>\" --alt \"<other options>\" --commit <hash>. $never"
 fi
 
+board() { python3 "$here/night.py" board --dir "$folder" "$@" </dev/null >/dev/null 2>&1 || true; }
+
 bash "$here/awake.sh" "$hours" | tee -a "$log"
 echo "$(date '+%F %T') night loop: until $(date -r "$end" '+%H:%M' 2>/dev/null || date -d "@$end" '+%H:%M'), mode $mode, web chats: $web, forks in the road: $decide" | tee -a "$log"
 
@@ -124,13 +129,17 @@ is_limit() {
   [ "$rc" -ne 0 ] || [ "${#out}" -lt 300 ]
 }
 
+board --state working --note "until $(date -r "$end" '+%H:%M' 2>/dev/null || date -d "@$end" '+%H:%M')"
+why=""
+# killed, Ctrl-C or the terminal closed: the board says so instead of "working" forever
+trap 'board --state failed --note "the loop was stopped (${why:-a signal}) - see $log"; exit 130' INT TERM HUP
 round=0
 while :; do
   now=$(date +%s)
-  [ "$now" -lt "$end" ] || { echo "$(date '+%F %T') time is up" | tee -a "$log"; break; }
-  [ -f "$folder/MORNING.md" ] && { echo "$(date '+%F %T') MORNING.md is ready — the night is over" | tee -a "$log"; break; }
-  [ -f "$folder/STOP" ] && { echo "$(date '+%F %T') STOP found — stopping" | tee -a "$log"; break; }
-  [ "$round" -lt "$max_rounds" ] || { echo "$(date '+%F %T') hit the $max_rounds-round ceiling" | tee -a "$log"; break; }
+  [ "$now" -lt "$end" ] || { why="time is up"; echo "$(date '+%F %T') $why" | tee -a "$log"; break; }
+  [ -f "$folder/MORNING.md" ] && { why="MORNING.md is ready"; echo "$(date '+%F %T') MORNING.md is ready — the night is over" | tee -a "$log"; break; }
+  [ -f "$folder/STOP" ] && { why="stopped by the STOP file"; echo "$(date '+%F %T') STOP found — stopping" | tee -a "$log"; break; }
+  [ "$round" -lt "$max_rounds" ] || { why="$max_rounds rounds done"; echo "$(date '+%F %T') hit the $max_rounds-round ceiling" | tee -a "$log"; break; }
   if [ "$family" = 1 ]; then
     pick=$(python3 "$here/family.py" pick --folder "$folder" --after "$who" 2>>"$log")
     if [ -z "$pick" ]; then
@@ -138,6 +147,7 @@ while :; do
       case "$wait" in ''|*[!0-9]*) wait=0;; esac
       [ "$wait" -gt 0 ] && [ "$wait" -lt "$limit_wait" ] || wait=$limit_wait
       echo "$(date '+%F %T') every family subscription is resting - next try in $((wait / 60)) min" | tee -a "$log"
+      board --state limit --rest "$wait" --note "every family subscription is resting"
       sleep "$wait"
       continue
     fi
@@ -152,6 +162,7 @@ EOF_PICK
   fi
   round=$((round + 1))
   echo "$(date '+%F %T') round $round${name:+ ($name, $engine)}" | tee -a "$log"
+  board --state working --note "round $round${name:+ ($name, $engine)}"
   out=$(step "$prompt")
   rc=$?
   printf '%s\n' "$out" | tail -20 >> "$log"
@@ -161,6 +172,9 @@ EOF_PICK
     sleep 5
   elif printf '%s' "$out" | grep -qiE "usage limit|limit reached|rate.?limit|hit your limit|resets? (at|in)"; then
     echo "$(date '+%F %T') subscription limit — waiting $((limit_wait / 60)) min and trying again" | tee -a "$log"
+    if [ "$rc" -ne 0 ] || [ "${#out}" -lt 300 ]; then   # a real limit line, not work that mentions limits
+      board --state limit --rest "$limit_wait" --note "the subscription rests; the night goes on by itself"
+    fi
     round=$((round - 1))
     sleep "$limit_wait"
   elif [ "$rc" -ne 0 ]; then
@@ -171,5 +185,11 @@ done
 
 if [ ! -f "$folder/MORNING.md" ]; then
   step "The night on the nightcall plugin is over. Folder: $folder. Write MORNING.md following skill nightcall:morning's template, in this order: \"Needs your decision\" (from decisions.md: the council's decisions with an undo command for each, and questions waiting for an answer; plus morning-advice.md, if it exists) / \"Done\" / \"Not done\" / \"Check\" / \"Who took part\" — strictly from PROGRESS.md and git log, making nothing up. Add a \"Relay\" line to \"Who took part\" if PROGRESS.md has a Relay section." >> "$log" 2>&1
+fi
+trap - INT TERM HUP
+if [ -f "$folder/MORNING.md" ]; then
+  board --state done --note "${why:+$why - }the report: $folder/MORNING.md"
+else
+  board --state failed --note "${why:-the loop ended} - no MORNING.md, see $log"
 fi
 echo "$(date '+%F %T') loop finished. Report: $folder/MORNING.md" | tee -a "$log"

@@ -126,6 +126,12 @@ bash scripts/night-loop.sh "<task folder>" 8
 Stops by itself at the end time, on `MORNING.md`, on a file named `STOP` in the folder, or at
 `NIGHTCALL_MAX_ROUNDS` (60). Permission mode: `NIGHTCALL_PERMISSION_MODE` (default `auto`).
 
+**On the phone.** With pocketcall installed, the night is one line on its board, next to every other
+job: *Working - round 7*, *Resting on a limit until 03:10*, *Done - the report: …/MORNING.md*. The phone
+rings when the night rests or ends (Telegram or your own ntfy topic, set with pocketcall's
+`board.py ring`), and the board's phone page in your shared folder shows it at a glance
+(`python3 scripts/night.py board`; `NIGHTCALL_BOARD=off` leaves the board alone).
+
 ## The family relay: the weekend goes on
 
 A family (or a family team) leaves for the weekend with a task running. When Dad's subscription runs

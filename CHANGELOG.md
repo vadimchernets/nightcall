@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1 — 2026-10-07
+
+- The night on pocketcall's board: `night.py board` and `night-loop.sh` put each night on pocketcall 0.4.0's board
+  as one line - working with the round and the hands it is in, resting on a limit until HH:MM (a spent limit, or
+  every family subscription resting), done with the path of MORNING.md, or stopped with the reason. Pocketcall's
+  `board.py put` rings the phone on the change (Telegram or the person's own ntfy topic) and rewrites the board's
+  phone page; without pocketcall the line waits in `~/.pocketcall/board/`. `NIGHTCALL_BOARD=off` leaves the board
+  alone, `NIGHTCALL_BOARD=<path>` names pocketcall's script. A night rings whether or not pocketcall says the person is
+  away; a loop killed or closed says "stopped" on the board; two folders of the same name are two lines. Tests:
+  `tests/test_board.py`.
+
 ## 0.4.0 — 2026-10-07
 
 - Family relay (`scripts/family.py`, skill `/nightcall:family`), the family profiles of PolyHelper V1 brought to the

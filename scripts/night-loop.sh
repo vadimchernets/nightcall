@@ -139,10 +139,10 @@ step() {
     settings=$(python3 "$here/family.py" settings --id "$who" 2>/dev/null)
   fi
   if [ "$engine" = gemini ]; then
-    # --sandbox: Gemini CLI's own sandbox (Seatbelt on a Mac), as Codex runs in its --full-auto workspace sandbox
+    # --sandbox: Gemini CLI's own sandbox (Seatbelt on a Mac), as Codex runs in its workspace-write sandbox
     (cd "$folder" && env $strip gemini -p "$1" --yolo --sandbox 2>&1)
   elif [ "$engine" = codex ]; then
-    (cd "$folder" && env $strip ${cfg:+"CODEX_HOME=$cfg"} codex exec --full-auto "$1" 2>&1)
+    (cd "$folder" && env $strip ${cfg:+"CODEX_HOME=$cfg"} codex exec -s workspace-write "$1" 2>&1)   # -s: current codex-cli (0.155 dropped --full-auto)
   else
     (cd "$folder" && env $strip ${cfg:+"CLAUDE_CONFIG_DIR=$cfg"} claude -p "$1" --permission-mode "$mode" ${settings:+--settings "$settings"} ${NIGHTCALL_MODEL:+--model "$NIGHTCALL_MODEL"} 2>&1)
   fi

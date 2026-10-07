@@ -33,6 +33,7 @@ fi
 if [ "$me" = gemini ] && [ -f "$MARKS/gemini-quota" ]; then
   echo "Error: [API Error: {\"error\":{\"code\":429,\"message\":\"Quota exceeded for quota metric 'Gemini 2.5 Pro Requests'\",\"status\":\"RESOURCE_EXHAUSTED\"}}]"; exit 1
 fi
+case " $* " in *" --full-auto "*) echo "error: unexpected argument '--full-auto' found" >&2; exit 2;; esac
 if [ -f "$MARKS/$me-limited" ]; then echo "You've hit your usage limit - resets 3am"; exit 1; fi
 echo "round by $me" >> rounds.txt
 n=$(wc -l < rounds.txt | tr -d ' ')

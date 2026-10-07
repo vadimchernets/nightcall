@@ -18,7 +18,8 @@
   no answer from the real server); a week's reading holds until the week's own reset (it only shrinks), so the reserve
   works in a headless night; Gemini rounds run with `--sandbox`, and its quota words (`quota`, `RESOURCE_EXHAUSTED`,
   `429`) count as a limit; the phone's lines ("switched to Codex - the work goes on", the meter) speak the phone's
-  language (`lang/*.json` "phone"; NIGHTCALL_LANG, else pocketcall's); the board card is data - `--kind night --hours
+  language (`lang/*.json` "phone"; NIGHTCALL_LANG, else pocketcall's); Codex rounds run `codex exec -s
+  workspace-write` (codex-cli 0.155 refuses `--full-auto`); the board card is data - `--kind night --hours
   --end [--box]` - never a command; `mine.py capture --then "<your status line>"` keeps the person's own status line.
 - The board: each night line carries the task folder, the command that goes on with the night (the phone's Continue
   button in pocketcall 0.5.0) and, in "my subscriptions", the meter (`--meter`); a change of hands rings at once

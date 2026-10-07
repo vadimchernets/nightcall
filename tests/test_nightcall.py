@@ -503,9 +503,9 @@ def test_web_when_morning_saves_question():
     assert "(in the morning)" in team(["summary", "--seats", seats], env).stdout
 
 
-def test_morning_template_puts_the_decision_first():
+def test_morning_template_puts_not_done_first_then_the_decision():
     text = open(os.path.join(ROOT, "skills", "morning", "SKILL.md"), encoding="utf-8").read()
-    heads = [h for h in ("## Needs your decision", "## Done", "## Not done", "## Check", "## Who took part")]
+    heads = [h for h in ("## Not done", "## Needs your decision", "## Done", "## Check", "## Who took part")]
     pos = [text.index(h) for h in heads]
     assert pos == sorted(pos), pos
     loop = open(os.path.join(S, "night-loop.sh"), encoding="utf-8").read()

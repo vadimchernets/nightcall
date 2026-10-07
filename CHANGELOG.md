@@ -2,6 +2,18 @@
 
 ## 0.5.0 — 2026-10-07
 
+- The checklist (`scripts/checklist.py`, the council's "one tested path", 07.10): `checklist.json` from the person's
+  own words line for line (`goal.md`, or TASK.md's section with the person's words), each with its sha256 and a copy
+  outside the folder, so a rewritten or removed item shows (`verify`, the morning). An item closes only with an
+  artifact that is there: a commit of the folder, a file in it (not the plan, the journal or a log), or a test that ran
+  through `checklist.py test` (its log's sha256 in a ledger outside the folder). "Deferred" stays open. The night loop
+  does not end on a MORNING.md written while items are open and time is left. `checklist.py morning` puts "Not done"
+  first in MORNING.md - open, deferred, words-only (marked done, artifact missing) and rewritten items - and marks every
+  closed one "confirmed by an artifact". One cold check at the end, not ours: diffcall's review over the folder
+  (`NIGHTCALL_COLD_CMD` names another). The step's task reads the method's rules (`method-rules.json`: the folder's,
+  `NIGHTCALL_METHOD_RULES`, or diffcall's). Skills start and morning follow it. Tests: `tests/test_checklist.py`
+  (including a lazy night that writes MORNING.md after one step with items open).
+
 - My subscriptions (`scripts/mine.py`, skill `/nightcall:mine`): one person's own Claude -> Codex -> Gemini CLI carry
   the night in turn. `night-loop.sh` picks the first program in the order that is installed, not resting and not
   nearly spent; a limit message rests that program until its reset time, the next one takes the next round from the

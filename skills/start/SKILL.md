@@ -106,7 +106,17 @@ setting. Everything that needs them happens in the next five minutes, before the
 
 ## 1. The plan — before the first step
 
-Write `PLAN.md`: 5–20 steps, each one **a checkable thing**, with its own "done when…" column.
+First the checklist from the person's own words, line for line - not your summary of them:
+```
+sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/checklist.py make --dir "<folder>"
+```
+(it reads `goal.md`, or the section of `TASK.md` with the person's words; `--from <file>` names another file). Show the
+person `checklist.json`'s items as they are. Every item of it is a "done when" of the night: an item closes only
+with `checklist.py close --n N --evidence <commit | file | test:<name>>`, and a test counts only after it ran through
+`checklist.py test -- <test command>`. Never edit `checklist.json` by hand - a rewritten item shows in the morning.
+
+Then write `PLAN.md`: 5–20 steps, each one **a checkable thing**, with its own "done when…" column taken from the
+checklist items it closes (their numbers), never invented.
 Order: what the rest depends on first; risky and unclear things early, while there is time to go
 around them. A step that cannot be checked is two steps or a wrong step. The plan is fixed: during
 the night you may **add** steps and **mark** steps as skipped with a reason, but never quietly
@@ -186,7 +196,8 @@ is said out loud, never faked by asking yourself twice.
 ## 4. Keeping the night going
 
 While the night is open, this plugin's Stop hook sends the session back to the next step each time
-you finish a turn — until the end time, `MORNING.md`, or a `STOP` file. So **do not end a turn
+you finish a turn — until the end time, `MORNING.md` with every checklist item closed, or a `STOP` file. A
+`MORNING.md` written while items are open is not the end: time left means work left. So **do not end a turn
 with a question to the person**: they are asleep. End it by doing the next step.
 
 If the Claude subscription limit runs out, the session pauses; the loop script (§0.6) waits and

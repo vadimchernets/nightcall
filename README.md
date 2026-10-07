@@ -133,6 +133,19 @@ rings when the night rests or ends (Telegram or your own ntfy topic, set with po
 `board.py ring`), and the board's phone page in your shared folder shows it at a glance
 (`python3 scripts/night.py board`; `NIGHTCALL_BOARD=off` leaves the board alone).
 
+## Nothing lost without a trace: the checklist
+
+`checklist.json` is the person's own words, one item per line. An item closes only with an artifact that is really
+there - a commit, a file, a test that ran through `checklist.py test` - and the night does not end early while items
+are open. The morning starts with "Not done", every closed item marked "confirmed by an artifact" or "words only", and
+one cold check by diffcall says what was lost or half-done.
+
+```
+python3 scripts/checklist.py make --dir "<task folder>"        # from goal.md / TASK.md, word for word
+python3 scripts/checklist.py test --dir "<task folder>" -- npm test
+python3 scripts/checklist.py close --dir "<task folder>" --n 2 --evidence test:"order form sends mail"
+```
+
 ## My subscriptions: Claude, then my Codex, then my Gemini
 
 One person with several subscriptions of their own: when the Claude limit runs out at 2 a.m. - or the

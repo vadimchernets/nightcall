@@ -37,11 +37,18 @@ checked is not "done" — it is "done, not checked".
 
 ## 2. Write `MORNING.md`
 
-The order is fixed: what needs the person comes **first**.
+The order is fixed: what was **not done** comes first, then what needs the person. The "Not done" section is
+written by code, not by you: after `MORNING.md` is written, run
+`sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/checklist.py morning --dir "<folder>"` - it puts on top
+every open, deferred, "words only" (marked done, but its artifact is not there) and rewritten item of `checklist.json`,
+and the cold check (`checklist.py cold`, done by diffcall - not by you).
 
 ```
 # Morning: <task in one line>
 Night: <start> – <end>. Steps in the plan: N. Done: X. Not done: Y.
+
+## Not done
+(filled by checklist.py morning: open, deferred, words-only and rewritten items, and the cold check)
 
 ## Needs your decision
 - The AI council decided: <what> — why: <why> — advised by: <who> — undo: `git revert <hash>` — or fix it like this: "…" (each entry of decisions.md, mode `council`)
@@ -50,10 +57,8 @@ Night: <start> – <end>. Steps in the plan: N. Done: X. Not done: Y.
 - Questions for web chats, left for the morning: `morning-advice.md` (<how many>) — only if the file exists
 
 ## Done
-- <step> — <result, where it is> — checked: <how>
-
-## Not done
-- <step> — <why: stuck after 3 tries / no time / waits for you> — <what was tried>
+- <step> — <result, where it is> — confirmed by an artifact: <commit / file / test run> | words only
+- <a step not done> — <why: stuck after 3 tries / no time / waits for you> — <what was tried> (it stays under "Not done")
 
 ## Check (5 minutes)
 1. <the most important thing to look at with your own eyes, with the file/path>

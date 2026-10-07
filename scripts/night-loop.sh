@@ -55,6 +55,22 @@ log="$folder/night-loop.log"
 if ! grep -q 'nightcall:fence' "$folder/CLAUDE.md" 2>/dev/null; then
   python3 "$here/night.py" begin --dir "$folder" --hours "$hours" </dev/null | tee -a "$log"
 fi
+# the checklist: the person's own words from TASK.md as numbered items; an item closes only with evidence
+# (checklist.py close --evidence <commit|test|file>), and the night does not end early while items are open
+chk="$here/checklist.py"
+# the method's rules, one registry: the task folder's method-rules.json, NIGHTCALL_METHOD_RULES, or the one shipped
+# with diffcall (the Synthesizer's packages/synthesizer/method-rules.json)
+rules=${NIGHTCALL_METHOD_RULES:-}
+[ -n "$rules" ] || { [ -f "$folder/method-rules.json" ] && rules="$folder/method-rules.json"; }
+[ -n "$rules" ] || rules=$(ls -t "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/diffcall/*/lib/packages/synthesizer/method-rules.json 2>/dev/null | head -1)
+method_rule=""
+[ -n "$rules" ] && [ -f "$rules" ] && method_rule="
+   The method's rules apply to this step: read $rules (each rule's text; follow the ones that fit this step)."
+if { [ -f "$folder/TASK.md" ] || [ -f "$folder/goal.md" ]; } && [ ! -f "$folder/checklist.json" ]; then
+  python3 "$chk" make --dir "$folder" </dev/null | tee -a "$log"
+fi
+open_items() { [ -f "$folder/checklist.json" ] && ! python3 "$chk" status --dir "$folder" >/dev/null 2>&1; }
+chk_line() { [ -f "$folder/checklist.json" ] && python3 "$chk" status --dir "$folder" 2>/dev/null; }
 # web chats: the person's choice at the roll call — "night" (default, a reserve) or "morning".
 # Read through team.py's own load_seats()/web_when(): a seats.json written before the English
 # rename (Russian keys) must give the same answer as a current one, not silently fall back to the
@@ -106,16 +122,22 @@ echo "$(date '+%F %T') night loop: until $(date -r "$end" '+%H:%M' 2>/dev/null |
 
 prompt="You are working at night on the nightcall plugin, the person is asleep — don't ask them anything.
 Task folder: $folder
-1. Read TASK.md, PLAN.md, PROGRESS.md (and seats.json, if it exists).
+1. Read TASK.md, PLAN.md, PROGRESS.md, checklist.json (the person's own words, one item per line - never edit it
+   by hand), and seats.json, if it exists.$method_rule
 2. Take the FIRST undone step from PLAN.md. Do it fully, check it against its \"done\" criterion.
 3. Self-criticism: re-read the result through the eyes of a strict reviewer; if the step matters, ask
    a live helper: python3 \"$here/team.py\" ask --seats \"$folder/seats.json\" --dir \"$folder\" - (question on stdin).
    $web_rule
    Fix what you found, once.
    $decide_rule
+   checklist.json: when your step finishes an item, close it ONLY with evidence:
+   python3 \"$chk\" close --dir \"$folder\" --n <item> --evidence <commit sha | file path | test:<test name>>
+   A test counts only if it ran through: python3 \"$chk\" test --dir \"$folder\" -- <the test command>
+   An item you cannot finish now: python3 \"$chk\" defer --dir \"$folder\" --n <item> --why \"<why>\" - it stays open.
 4. Add to PROGRESS.md: time (date), step, what was done, how it was checked, what's left, disputed
    decisions under \"Check in the morning\". If the folder is under git — one commit per step.
-5. If every step is done — write MORNING.md following skill nightcall:morning.
+5. If every step is done AND every checklist.json item is closed with evidence — write MORNING.md following skill
+   nightcall:morning. While items are open there is work left: take the next open item instead.
 Do ONE step and end the turn."
 
 family=0
@@ -162,7 +184,14 @@ round=0
 while :; do
   now=$(date +%s)
   [ "$now" -lt "$end" ] || { why="time is up"; echo "$(date '+%F %T') $why" | tee -a "$log"; break; }
-  [ -f "$folder/MORNING.md" ] && { why="MORNING.md is ready"; echo "$(date '+%F %T') MORNING.md is ready — the night is over" | tee -a "$log"; break; }
+  if [ -f "$folder/MORNING.md" ]; then
+    if open_items; then   # "done" with items open and time left: not done - the night goes on
+      mv "$folder/MORNING.md" "$folder/MORNING-early-$(date +%H%M%S).md"
+      echo "$(date '+%F %T') MORNING.md came with the checklist $(chk_line) - the night goes on" | tee -a "$log"
+    else
+      why="MORNING.md is ready"; echo "$(date '+%F %T') MORNING.md is ready — the night is over" | tee -a "$log"; break
+    fi
+  fi
   [ -f "$folder/STOP" ] && { why="stopped by the STOP file"; echo "$(date '+%F %T') STOP found — stopping" | tee -a "$log"; break; }
   [ "$round" -lt "$max_rounds" ] || { why="$max_rounds rounds done"; echo "$(date '+%F %T') hit the $max_rounds-round ceiling" | tee -a "$log"; break; }
   if [ "$family" = 1 ]; then
@@ -206,7 +235,7 @@ EOF_PICK
   fi
   round=$((round + 1))
   echo "$(date '+%F %T') round $round${name:+ ($name, $engine)}" | tee -a "$log"
-  board --state working --note "round $round${name:+ ($name, $engine)}"
+  c=$(chk_line); board --state working --note "round $round${name:+ ($name, $engine)}${c:+ - checklist: $c}"
   out=$(step "$prompt")
   rc=$?
   printf '%s\n' "$out" | tail -20 >> "$log"
@@ -231,12 +260,17 @@ EOF_PICK
   fi
 done
 
+# the cold check: another company's AI answers "what was lost, what was half-done" (NIGHTCALL_COLD=off skips it)
+if [ -f "$folder/TASK.md" ] && [ "${NIGHTCALL_COLD:-on}" != off ]; then
+  python3 "$chk" cold --dir "$folder" </dev/null >> "$log" 2>&1
+fi
 if [ ! -f "$folder/MORNING.md" ]; then
-  step "The night on the nightcall plugin is over. Folder: $folder. Write MORNING.md following skill nightcall:morning's template, in this order: \"Needs your decision\" (from decisions.md: the council's decisions with an undo command for each, and questions waiting for an answer; plus morning-advice.md, if it exists) / \"Done\" / \"Not done\" / \"Check\" / \"Who took part\" — strictly from PROGRESS.md and git log, making nothing up. Add a \"Relay\" line to \"Who took part\" if PROGRESS.md has a Relay section." >> "$log" 2>&1
+  step "The night on the nightcall plugin is over. Folder: $folder. Write MORNING.md following skill nightcall:morning's template, in this order: \"Not done\" (it is filled from checklist.json and cold-check.md by checklist.py - leave its place first), \"Needs your decision\" (from decisions.md: the council's decisions with an undo command for each, and questions waiting for an answer; plus morning-advice.md, if it exists) / \"Done\" (each line marked \"confirmed by an artifact\" - a commit, a file, a test run - or \"words only\") / \"Check\" / \"Who took part\" — strictly from PROGRESS.md and git log, making nothing up. Add a \"Relay\" line to \"Who took part\" if PROGRESS.md has a Relay section." >> "$log" 2>&1
 fi
 trap - INT TERM HUP
+[ -f "$folder/checklist.json" ] && [ -f "$folder/MORNING.md" ] && python3 "$chk" morning --dir "$folder" >> "$log" 2>&1
 if [ -f "$folder/MORNING.md" ]; then
-  board --state done --note "${why:+$why - }the report: $folder/MORNING.md"
+  c=$(chk_line); board --state done --note "${why:+$why - }${c:+checklist: $c - }the report: $folder/MORNING.md"
 else
   board --state failed --note "${why:-the loop ended} - no MORNING.md, see $log"
 fi

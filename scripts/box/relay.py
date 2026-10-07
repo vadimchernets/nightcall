@@ -22,6 +22,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATES = {"working", "limit", "done", "failed"}
+END = 0   # the night's end (seconds since 1970): set once when the relay starts, next to the night
 
 
 def job_id(folder):  # the same id night.py gives this folder's night
@@ -76,7 +77,7 @@ def put(card, folder, hours):
                 "note": card["note"], "until": card["until"], "meter": card["meter"]}
     line.pop("resume", None)                     # a boxed night's Continue is built from the data below
     line.update({k: card[k] for k in ("state", "note", "until", "meter")})
-    line.update({"folder": folder, "hours": hours, "box": True, "at": time.time()})
+    line.update({"kind": "night", "folder": folder, "hours": hours, "end": END, "box": True, "at": time.time()})
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path + ".tmp", "w", encoding="utf-8") as fh:
         json.dump(line, fh, ensure_ascii=False)
@@ -116,10 +117,13 @@ def main(argv=None):
     ap.add_argument("--folder", required=True)
     ap.add_argument("--hours", type=int, default=8)
     ap.add_argument("--watch", type=int, default=0, help="go on while this process lives (box.sh)")
+    ap.add_argument("--end", type=int, default=0, help="the night's end, seconds since 1970 (default: now + hours)")
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--every", type=float, default=3)
     a = ap.parse_args(argv)
     folder = os.path.realpath(a.folder)
+    global END
+    END = int(a.end or time.time() + a.hours * 3600)
     seen = {}
     one_pass(a.src, folder, a.hours, seen)
     while not a.once and a.watch and alive(a.watch):

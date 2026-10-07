@@ -78,6 +78,7 @@ if [ "$cmd" = stop ]; then
 fi
 
 mode=${NIGHTCALL_BOX:-auto}
+case "$mode" in srt|docker) ;; *) mode=auto;; esac   # NIGHTCALL_BOX=1 (the phone's Continue) = pick by itself
 if [ "$mode" = auto ]; then
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then mode=docker; else mode=srt; fi
 fi
@@ -130,7 +131,7 @@ PY
 git_name=$(git config --global user.name 2>/dev/null || true)
 git_mail=$(git config --global user.email 2>/dev/null || true)
 # inside: its own homes; the board card is plain data in its own folder (relay.py carries it out)
-inside=(NIGHTCALL_IN_BOX=1 "NIGHTCALL_FAMILY=${NIGHTCALL_FAMILY:-off}" NIGHTCALL_BOARD=box-relay
+inside=(NIGHTCALL_IN_BOX=1 NIGHTCALL_BOX= "NIGHTCALL_FAMILY=${NIGHTCALL_FAMILY:-off}" NIGHTCALL_BOARD=box-relay
         "GIT_AUTHOR_NAME=$git_name" "GIT_AUTHOR_EMAIL=$git_mail" "GIT_COMMITTER_NAME=$git_name" "GIT_COMMITTER_EMAIL=$git_mail")
 
 if [ "$mode" = docker ]; then

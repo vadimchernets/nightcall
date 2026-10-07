@@ -26,7 +26,7 @@
 # NIGHTCALL_BOARD=off leaves the board alone).
 # Model: NIGHTCALL_MODEL (default: whatever Claude Code uses). On Windows run it from Git Bash or WSL; the plain Claude Code session (/nightcall:start) works anywhere.
 set -u
-[ "${1:-}" = --box ] && { shift; exec bash "$(dirname "$0")/box.sh" "$@"; }   # --box: the night in a sandbox that sees only the task folder (box.sh)
+if [ -z "${NIGHTCALL_IN_BOX:-}" ] && { [ "${NIGHTCALL_BOX:-}" = 1 ] || case " $* " in *" --box "*) true;; *) false;; esac; }; then a=(); for x in "$@"; do [ "$x" = --box ] || a+=("$x"); done; exec bash "$(dirname "$0")/box.sh" "${a[@]}"; fi   # --box (first or after the hours) or NIGHTCALL_BOX=1: the night in a sandbox that sees only the task folder (box.sh)
 
 folder=${1:?"Give the task folder: bash night-loop.sh <folder> [hours]"}
 hours=${2:-8}

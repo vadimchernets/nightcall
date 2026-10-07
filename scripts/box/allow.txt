@@ -1,0 +1,22 @@
+# The box's network: only these hosts answer from inside (one per line, *.x.com for a whole domain).
+# Add your own for one night: NIGHTCALL_BOX_ALLOW="pypi.org files.pythonhosted.org", or a box-allow.txt
+# in the task folder with the same format.
+# Claude Code: the model, sign-in and token refresh
+api.anthropic.com
+claude.ai
+platform.claude.com
+console.anthropic.com
+statsig.anthropic.com
+# Codex
+api.openai.com
+chatgpt.com
+auth.openai.com
+# git over https and package registries
+github.com
+api.github.com
+codeload.github.com
+objects.githubusercontent.com
+raw.githubusercontent.com
+registry.npmjs.org
+pypi.org
+files.pythonhosted.org

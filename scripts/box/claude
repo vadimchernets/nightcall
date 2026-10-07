@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Inside the container: the real claude with the nightcall plugin loaded from the read-only copy.
+exec /usr/local/bin/claude --plugin-dir /opt/nightcall "$@"

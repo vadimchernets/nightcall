@@ -27,7 +27,15 @@ def night(env, *args):
 
 def args_of(line):
     a = json.loads(line)
-    return {a[i][2:]: a[i + 1] for i in range(1, len(a) - 1, 2)} | {"cmd": a[0]}
+    out, i = {"cmd": a[0]}, 1
+    while i < len(a):
+        if i + 1 < len(a) and not a[i + 1].startswith("--"):
+            out[a[i][2:]] = a[i + 1]
+            i += 2
+        else:
+            out[a[i][2:]] = True
+            i += 1
+    return out
 
 
 def test_without_pocketcall_the_line_waits_in_its_folder_with_the_hour_the_night_goes_on():
@@ -72,7 +80,7 @@ def test_the_night_loop_reports_each_round_and_the_report_at_the_end():
     assert calls, r.stdout + r.stderr
     assert all(c["cmd"] == "put" and c["id"].startswith("nightcall-task-") and c["where"] == "nightcall"
                for c in calls)
-    assert all(json.loads(x)[-1] == "--ring" for x in open(env["BOARD_LOG"]).read().splitlines())
+    assert all(c.get("ring") is True and c["folder"] == task and "night-loop.sh" in c["resume"] for c in calls)
     states = [c["state"] for c in calls]
     assert states[0] == "working" and calls[0]["note"].startswith("until ")
     assert [c["note"] for c in calls[1:4]] == ["round 1", "round 2", "round 3"]

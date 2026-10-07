@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — 2026-10-07
+
+- My subscriptions (`scripts/mine.py`, skill `/nightcall:mine`): one person's own Claude -> Codex -> Gemini CLI carry
+  the night in turn. `night-loop.sh` picks the first program in the order that is installed, not resting and not
+  nearly spent; a limit message rests that program until its reset time, the next one takes the next round from the
+  same files, and the work returns to the first as soon as it is back. Every change of hands is a "Relay" line in
+  PROGRESS.md. Gemini rounds run as `gemini -p ... --yolo`.
+- The remaining-% sensor (from diffcall's core-poly/capacity): `mine.py capture` as Claude Code's `statusLine` command
+  keeps the `rate_limits` numbers (five-hour / weekly, used %, reset time; nothing else of the payload); Codex is read
+  live through `codex app-server` -> `account/rateLimits/read`. A fresh reading below `--below` (default 10%) hands the
+  work over before a limit cuts a step in the middle; a stale one is not used.
+- The board: each night line carries the task folder, the command that goes on with the night (the phone's Continue
+  button in pocketcall 0.5.0) and, in "my subscriptions", the meter (`--meter`); a change of hands rings at once
+  (`--say`). With pocketcall before 0.5.0 the line goes without these fields. Tests: `tests/test_mine.py`.
+
 ## 0.4.1 — 2026-10-07
 
 - The night on pocketcall's board: `night.py board` and `night-loop.sh` put each night on pocketcall 0.4.0's board

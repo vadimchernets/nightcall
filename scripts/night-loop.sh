@@ -17,6 +17,10 @@
 # does not mean waiting - the next round runs in the next family member's own sign-in folder
 # (CLAUDE_CONFIG_DIR / CODEX_HOME), and the change of hands is written into PROGRESS.md. NIGHTCALL_FAMILY=off
 # runs the night on this computer's usual sign-in only.
+# My subscriptions: with ~/.nightcall/mine.json (scripts/mine.py on, skill nightcall:mine) and no family, one
+# person's own Claude -> Codex -> Gemini CLI carry the night in turn: a spent (or nearly spent, by the
+# remaining-% sensor) Claude hands the next step to Codex, and the work comes back to Claude when it is back.
+# NIGHTCALL_MINE=off runs Claude only.
 # The board: with pocketcall the night is one line on its board (working / resting on a limit until HH:MM /
 # done), the phone sees it next to every other job and rings when the night rests or ends (night.py board;
 # NIGHTCALL_BOARD=off leaves the board alone).
@@ -29,9 +33,11 @@ case "$hours" in ''|*[!0-9]*) echo "Hours must be a whole number, e.g. 8 or 12."
 [ -f "$folder/PLAN.md" ] || { echo "No PLAN.md in $folder — /nightcall:start writes the plan first."; exit 2; }
 if ! command -v claude >/dev/null 2>&1; then
   # a family whose members work in Codex runs without claude; anyone else needs it
+  # (or "my subscriptions" with Codex / Gemini CLI) runs without claude; anyone else needs it
   engines=""; [ "${NIGHTCALL_FAMILY:-on}" = off ] || engines=$(python3 "$(dirname "$0")/family.py" engines 2>/dev/null)
+  [ "${NIGHTCALL_MINE:-on}" = off ] || engines="$engines $(python3 "$(dirname "$0")/mine.py" engines 2>/dev/null)"
   case " $engines " in
-    *" codex "*) command -v codex >/dev/null 2>&1 || { echo "The claude command was not found."; exit 3; };;
+    *" codex "*|*" gemini "*) command -v codex >/dev/null 2>&1 || command -v gemini >/dev/null 2>&1 || { echo "The claude command was not found."; exit 3; };;
     *) echo "The claude command was not found."; exit 3;;
   esac
 fi
@@ -81,7 +87,16 @@ else
   decide_rule="A fork in the road that the person usually decides: decide it with the AI council (team.py ask — other companies, then its own critics), without stopping: make it a SEPARATE commit and write it down: python3 \"$here/team.py\" decide --dir \"$folder\" --what \"<what was decided>\" --why \"<why>\" --who \"<who advised>\" --alt \"<other options>\" --commit <hash>. $never"
 fi
 
-board() { python3 "$here/night.py" board --dir "$folder" "$@" </dev/null >/dev/null 2>&1 || true; }
+mine=0
+if [ "${NIGHTCALL_FAMILY:-on}" != off ] && python3 "$here/family.py" status >/dev/null 2>&1; then :
+elif [ "${NIGHTCALL_MINE:-on}" != off ] && python3 "$here/mine.py" status --quiet >/dev/null 2>&1; then mine=1; fi
+# the board line: the task folder and the command that goes on with the night (the phone's "Continue"),
+# and in "my subscriptions" how much each one has left
+board() {
+  local m=""
+  [ "$mine" = 1 ] && m=$(python3 "$here/mine.py" meter 2>/dev/null)
+  python3 "$here/night.py" board --dir "$folder" --resume "bash \"$here/night-loop.sh\" \"$folder\" $hours" ${m:+--meter "$m"} "$@" </dev/null >/dev/null 2>&1 || true
+}
 
 bash "$here/awake.sh" "$hours" | tee -a "$log"
 echo "$(date '+%F %T') night loop: until $(date -r "$end" '+%H:%M' 2>/dev/null || date -d "@$end" '+%H:%M'), mode $mode, web chats: $web, forks in the road: $decide" | tee -a "$log"
@@ -106,6 +121,10 @@ if [ "${NIGHTCALL_FAMILY:-on}" != off ] && python3 "$here/family.py" status >/de
   echo "$(date '+%F %T') family relay on: when one subscription rests, the next member's own account carries the work on" | tee -a "$log"
 fi
 who=""; engine=claude; cfg=""; name=""
+if [ "$mine" = 1 ]; then
+  echo "$(date '+%F %T') my subscriptions: $(python3 "$here/mine.py" engines | sed 's/ / -> /g'); the work moves on when one rests and comes back to the first" | tee -a "$log"
+  engine=""
+fi
 
 # one round in the current hands: claude (or codex) in the member's own sign-in folder. In the family
 # a round carries no key or token from this environment - only the member's own sign-in - and its
@@ -117,7 +136,9 @@ step() {
     strip=$keys_out
     settings=$(python3 "$here/family.py" settings --id "$who" 2>/dev/null)
   fi
-  if [ "$engine" = codex ]; then
+  if [ "$engine" = gemini ]; then
+    (cd "$folder" && gemini -p "$1" --yolo 2>&1)
+  elif [ "$engine" = codex ]; then
     (cd "$folder" && env $strip ${cfg:+"CODEX_HOME=$cfg"} codex exec --full-auto "$1" 2>&1)
   else
     (cd "$folder" && env $strip ${cfg:+"CLAUDE_CONFIG_DIR=$cfg"} claude -p "$1" --permission-mode "$mode" ${settings:+--settings "$settings"} ${NIGHTCALL_MODEL:+--model "$NIGHTCALL_MODEL"} 2>&1)
@@ -160,6 +181,25 @@ EOF_PICK
     fi
     who=$mid
   fi
+  if [ "$mine" = 1 ]; then
+    pick=$(python3 "$here/mine.py" pick --after "$engine" 2>>"$log")
+    if [ -z "$pick" ]; then
+      wait=$(python3 "$here/mine.py" soonest 2>/dev/null || echo 0)
+      case "$wait" in ''|*[!0-9]*) wait=0;; esac
+      [ "$wait" -gt 0 ] && [ "$wait" -lt "$limit_wait" ] || wait=$limit_wait
+      echo "$(date '+%F %T') every subscription of mine is resting - next try in $((wait / 60)) min" | tee -a "$log"
+      board --state limit --rest "$wait" --note "every subscription of mine is resting"
+      sleep "$wait"
+      continue
+    fi
+    prev=${engine:-$(python3 "$here/mine.py" engines | awk '{print $1}')}   # the first night round: from the first in order
+    if [ "$pick" != "$prev" ]; then
+      line=$(python3 "$here/mine.py" relay --folder "$folder" --from "$prev" --to "$pick")
+      echo "$line" | tee -a "$log"
+      board --state working --say --note "switched to $pick - the work goes on"
+    fi
+    engine=$pick; name="mine"
+  fi
   round=$((round + 1))
   echo "$(date '+%F %T') round $round${name:+ ($name, $engine)}" | tee -a "$log"
   board --state working --note "round $round${name:+ ($name, $engine)}"
@@ -168,6 +208,10 @@ EOF_PICK
   printf '%s\n' "$out" | tail -20 >> "$log"
   if [ "$family" = 1 ] && is_limit; then
     printf '%s' "$out" | python3 "$here/family.py" limit --id "$who" | tee -a "$log"
+    round=$((round - 1))
+    sleep 5
+  elif [ "$mine" = 1 ] && is_limit; then
+    printf '%s' "$out" | python3 "$here/mine.py" limit --engine "$engine" | tee -a "$log"
     round=$((round - 1))
     sleep 5
   elif printf '%s' "$out" | grep -qiE "usage limit|limit reached|rate.?limit|hit your limit|resets? (at|in)"; then

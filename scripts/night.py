@@ -7,6 +7,7 @@
     python3 night.py status
     python3 night.py end
     python3 night.py board --dir <task folder> --state working|limit|done|failed [--note <text>] [--rest <seconds>]
+                           [--resume <command>] [--meter <left % line>] [--say]
 
 `begin` creates the task folder with TASK.md (the person's words, as given), a PLAN.md and a
 PROGRESS.md skeleton if they are not there yet, and ALWAYS puts the night on a safety net, without
@@ -229,9 +230,13 @@ def cmd_board(a):
     if script:
         cmd = [sys.executable, script, "put", "--id", job_id, "--name", name, "--where", "nightcall",
                "--state", a.state, "--note", a.note, "--until", until, "--ring"]   # a night rings, away or not
+        extra = ["--folder", folder, "--resume", a.resume, "--meter", a.meter] + (["--say"] if a.say else [])
         try:
-            subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           timeout=30)
+            r = subprocess.run(cmd + extra, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, timeout=30)
+            if r.returncode == 2:   # pocketcall before 0.5.0 knows no folder/meter: the line itself still goes
+                subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               timeout=30)
             return 0
         except (OSError, subprocess.SubprocessError):
             pass
@@ -241,7 +246,8 @@ def cmd_board(a):
         path = os.path.join(base, job_id + ".json")
         with open(path + ".tmp", "w", encoding="utf-8") as fh:
             json.dump({"id": job_id, "name": name, "where": "nightcall", "state": a.state,
-                       "note": " ".join(a.note.split())[:160], "until": until, "at": time.time()},
+                       "note": " ".join(a.note.split())[:160], "until": until, "at": time.time(),
+                       "folder": folder, "resume": a.resume, "meter": a.meter},
                       fh, ensure_ascii=False)
         os.chmod(path + ".tmp", 0o600)
         os.replace(path + ".tmp", path)
@@ -268,6 +274,9 @@ def main(argv=None):
     o.add_argument("--state", required=True, choices=("working", "limit", "done", "failed"))
     o.add_argument("--note", default="")
     o.add_argument("--rest", type=int, default=0, help="seconds until the night goes on (a limit)")
+    o.add_argument("--resume", default="", help="the command that goes on with the night (the phone's Continue)")
+    o.add_argument("--meter", default="", help="how much each subscription has left, one line")
+    o.add_argument("--say", action="store_true", help="ring this line now even if the state did not change")
     a = ap.parse_args(argv)
     return {"begin": cmd_begin, "arm": cmd_arm, "status": cmd_status, "end": cmd_end,
             "board": cmd_board}[a.cmd](a)

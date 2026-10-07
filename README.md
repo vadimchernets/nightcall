@@ -42,6 +42,7 @@ it and deletes their saved data.
 | `/nightcall:awake 8` · `12` · `stop` | Coffee for the computer: Mac, Linux or Windows, no admin rights, switches itself off. |
 | `/nightcall:team` | Which other AIs are alive tonight; dead ones are replaced; no programs → free web chats in the browser. |
 | `/nightcall:ready` | The checklist before leaving: power, lid, updates, network, disk, permissions, limits. |
+| `/nightcall:mine` | My subscriptions: Claude, then my own Codex, then my own Gemini CLI carry the night on in turn, and the work comes back to Claude when its limit is back; the board shows how much each has left. |
 | `/nightcall:family` | The family relay: when one person's limit runs out, the next family member's own account carries the night or the weekend on. |
 | `/nightcall:morning` | `MORNING.md`: done / not done / check first / decided without you. Switches everything off. |
 
@@ -131,6 +132,24 @@ job: *Working - round 7*, *Resting on a limit until 03:10*, *Done - the report: 
 rings when the night rests or ends (Telegram or your own ntfy topic, set with pocketcall's
 `board.py ring`), and the board's phone page in your shared folder shows it at a glance
 (`python3 scripts/night.py board`; `NIGHTCALL_BOARD=off` leaves the board alone).
+
+## My subscriptions: Claude, then my Codex, then my Gemini
+
+One person with several subscriptions of their own: when the Claude limit runs out at 2 a.m. - or the
+remaining-% sensor says less than 10% is left - the next step goes on in their own Codex, then their own
+Gemini CLI, from the same TASK.md, PLAN.md and PROGRESS.md; when the Claude limit is back, the work comes
+back to Claude. The phone hears "switched to codex - the work goes on", the board shows what is left.
+
+```
+python3 scripts/mine.py on --order claude,codex,gemini --below 10
+python3 scripts/mine.py status        # free or resting until HH:MM, % left in each
+bash scripts/night-loop.sh "<task folder>" 12
+```
+
+How much is left: Claude Code tells it to its status line - `mine.py capture` as the `statusLine`
+command keeps the numbers (five-hour and weekly windows, only numbers, fresh 15 min / 6 h); Codex is read
+live through `codex app-server` (`account/rateLimits/read`). The same sensor as diffcall's capacity
+package. Skill: `/nightcall:mine`.
 
 ## The family relay: the weekend goes on
 

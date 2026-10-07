@@ -13,8 +13,9 @@ for h in $hosts; do
 done
 iptables -F OUTPUT
 iptables -A OUTPUT -o lo -j ACCEPT
-iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
-iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
+ns=$(awk '/^nameserver/{print $2; exit}' /etc/resolv.conf)   # names only through the container's own resolver
+iptables -A OUTPUT -p udp -d "$ns" --dport 53 -j ACCEPT
+iptables -A OUTPUT -p tcp -d "$ns" --dport 53 -j ACCEPT
 iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A OUTPUT -m set --match-set box-allow dst -j ACCEPT
 iptables -P OUTPUT DROP

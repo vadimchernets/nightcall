@@ -7,10 +7,15 @@
 #   bash box.sh plan "<task folder>" [hours]           # print what would run (mode, command, sandbox rules)
 #   bash box.sh rules "<task folder>"                  # only the sandbox rules, as JSON
 #
-# What the box gives: files - only the task folder is writable, the rest of the home folder is not even
-# readable (no ~/.ssh, ~/.aws, other projects); network - only the hosts in box/allow.txt (+ the folder's
-# box-allow.txt, + NIGHTCALL_BOX_ALLOW); keys - none lie in the box: the subscription token comes from the
-# host's Keychain (`claude setup-token` -> `bash box.sh key`) as an environment variable of this one run.
+# What the box gives: files - the task folder is the only place of yours it reads and writes; the rest
+# of the home folder (other projects, ~/.ssh, ~/.aws, your Claude Code and Codex history and settings)
+# is not even readable. The box has its own homes for Claude Code, Codex, npm and the board
+# (~/.nightcall/box/<id>/), so nothing it writes ever runs later outside it. Network - only the hosts in
+# box/allow.txt (+ the folder's box-allow.txt, + NIGHTCALL_BOX_ALLOW). Keys - none lie in the box: the
+# subscription token comes from the host's Keychain (`claude setup-token` -> `bash box.sh key`) as an
+# environment variable of this one run. The board on the phone: the box writes only plain data into its
+# own card; box/relay.py, outside, checks it field by field and puts the line on pocketcall's board with
+# the night's folder, hours and box: true - never a command.
 #
 # Two kinds of box, picked by itself (NIGHTCALL_BOX=srt|docker to choose):
 #   docker - when Docker answers (Docker Desktop, colima, OrbStack): a real container, the egress firewall
@@ -25,7 +30,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/.." && pwd)
 state=${NIGHTCALL_HOME:-$HOME/.nightcall}/box
 srt_pkg=${NIGHTCALL_SRT:-@anthropic-ai/sandbox-runtime@0.0.79}
-image=${NIGHTCALL_BOX_IMAGE:-nightcall-box:2}
+image=${NIGHTCALL_BOX_IMAGE:-nightcall-box:3}
 cmd=run
 case "${1:-}" in stop|key|plan|rules) cmd=$1; shift;; esac
 
@@ -53,7 +58,8 @@ hours=${2:-8}
 folder=$(cd "$folder" && pwd -P)
 tag=$(printf '%s' "$folder" | shasum | cut -c1-10)
 name="nightcall-box-$tag"
-pidfile="$state/$tag.pid"
+pidfile="$state/$tag.pid"          # outside the box's own home: the box cannot touch it
+own="$state/$tag"                  # the box's own homes: claude, codex, npm, tmp, the board card
 
 kill_tree() {  # the process and everything it started
   local p
@@ -83,67 +89,76 @@ if [ -z "$claude_token" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ "$cmd" = run ]
   echo "First boxed night: the box takes your subscription from the Keychain - setting it up now (once)."
   bash "$0" key claude && claude_token=$(keychain claude)
 fi
-
 if [ -z "$claude_token" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ "$cmd" = run ]; then
   echo "The box signs in with a token from the Keychain - run once: bash $here/box.sh key   (then start the night again)"
   exit 3
 fi
 
 srt_settings() {  # the sandbox rules as JSON
-  python3 - "$folder" "$root" "$here/box/allow.txt" "${NIGHTCALL_BOX_ALLOW:-}" "$([ -n "$codex_key" ] && echo key)" <<'PY'
-import json, os, sys
-folder, root, allow_file, extra, codex_key = sys.argv[1:6]
+  python3 - "$folder" "$root" "$own" "$here/box/allow.txt" "${NIGHTCALL_BOX_ALLOW:-}" <<'PY'
+import json, os, shutil, sys
+folder, root, own, allow_file, extra = sys.argv[1:6]
 home = os.path.expanduser("~")
 hosts = []
 for path in (allow_file, os.path.join(folder, "box-allow.txt")):
     if os.path.isfile(path):
         hosts += [l.strip() for l in open(path, encoding="utf-8") if l.strip() and not l.lstrip().startswith("#")]
 hosts += extra.split()
-H = lambda p: os.path.join(home, p)
-nightcall = os.environ.get("NIGHTCALL_HOME", H(".nightcall"))
-# claude's own install (~/.local, npm prefix) and settings are readable; the rest of the home folder is not
-read = [folder, root, H(".claude"), H(".claude.json"), H(".local"), H(".npm"), H(".config/claude"),
-        H(".pocketcall"), nightcall, H(".codex")]
-write = [folder, H(".claude"), H(".claude.json"), H(".claude.json.backup"), H(".codex"),
-         H(".pocketcall/board"), nightcall, "/private/tmp", "/tmp", H(".npm")]
-deny_write = [H(".claude/settings.json"), H(".claude/hooks"), H(".claude/plugins"), H(".claude/skills"),
-              H(".codex/config.toml"), root]
-deny_read = [home]
-if codex_key:  # the Codex key comes from the Keychain, so the sign-in file stays out of reach
-    deny_read.append(H(".codex/auth.json"))
+# the programs the night runs, when they live in the home folder: their install folders only (read)
+tools = set()
+for c in ("claude", "node", "npx", "npm", "codex", "gemini", "python3", "git"):
+    p = shutil.which(c)
+    if not p or not p.startswith(home + os.sep):
+        continue
+    tools.add(os.path.dirname(p))                       # the bin folder with the link
+    real = os.path.realpath(p)
+    if "/node_modules/" in real:
+        head, tail = real.split("/node_modules/", 1)
+        parts = tail.split("/")
+        tools.add(os.path.join(head, "node_modules", *parts[:2 if parts[0].startswith("@") else 1]))
+    else:
+        tools.add(os.path.dirname(os.path.dirname(real)))   # .../node/bin/node -> .../node
+tools = sorted(t for t in tools if t.startswith(home + os.sep) and t != home)
 print(json.dumps({
     "network": {"allowedDomains": sorted(set(hosts)), "deniedDomains": []},
-    "filesystem": {"denyRead": deny_read, "allowRead": read, "allowWrite": write, "denyWrite": deny_write},
+    "filesystem": {"denyRead": [home], "allowRead": [folder, root, own] + tools,
+                   "allowWrite": [folder, own], "denyWrite": [root]},
 }, indent=1))
 PY
 }
 
-loop_env=(NIGHTCALL_IN_BOX=1 "NIGHTCALL_FAMILY=${NIGHTCALL_FAMILY:-off}")
+git_name=$(git config --global user.name 2>/dev/null || true)
+git_mail=$(git config --global user.email 2>/dev/null || true)
+# inside: its own homes; the board card is plain data in its own folder (relay.py carries it out)
+inside=(NIGHTCALL_IN_BOX=1 "NIGHTCALL_FAMILY=${NIGHTCALL_FAMILY:-off}" NIGHTCALL_BOARD=box-relay
+        "GIT_AUTHOR_NAME=$git_name" "GIT_AUTHOR_EMAIL=$git_mail" "GIT_COMMITTER_NAME=$git_name" "GIT_COMMITTER_EMAIL=$git_mail")
 
 if [ "$mode" = docker ]; then
   run=(docker run --rm --name "$name" --init --cap-add NET_ADMIN --cap-add NET_RAW
-       -v "$folder:$folder" -v "$root:/opt/nightcall:ro" -w "$folder"
-       -e NIGHTCALL_IN_BOX=1 -e "NIGHTCALL_FAMILY=${NIGHTCALL_FAMILY:-off}" -e NIGHTCALL_BOARD=off
-       -e "NIGHTCALL_BOX_ALLOW=${NIGHTCALL_BOX_ALLOW:-}"
+       -v "$folder:$folder" -v "$root:/opt/nightcall:ro" -v "$own/pocketcall:/home/node/.pocketcall" -w "$folder"
+       -e POCKETCALL_HOME=/home/node/.pocketcall -e "NIGHTCALL_BOX_ALLOW=${NIGHTCALL_BOX_ALLOW:-}"
        -e "TZ=${TZ:-$(readlink /etc/localtime 2>/dev/null | sed 's#.*zoneinfo/##')}")   # the night's clock = this computer's
+  for v in "${inside[@]}"; do run+=(-e "$v"); done
   for v in NIGHTCALL_PERMISSION_MODE NIGHTCALL_MODEL NIGHTCALL_MAX_ROUNDS NIGHTCALL_LIMIT_WAIT; do
     [ -n "${!v:-}" ] && run+=(-e "$v")
   done
   [ -n "$claude_token" ] && run+=(-e CLAUDE_CODE_OAUTH_TOKEN)   # name only: the value travels in the env
   [ -n "${ANTHROPIC_API_KEY:-}" ] && run+=(-e ANTHROPIC_API_KEY)
-  [ -n "$codex_key" ] && run+=(-e OPENAI_API_KEY)
+  [ -n "$codex_key" ] && run+=(-e OPENAI_API_KEY -e CODEX_API_KEY)
   run+=("$image" -- bash /opt/nightcall/scripts/night-loop.sh "$folder" "$hours")
 else
-  mkdir -p "$state"
-  settings="$state/$tag.srt.json"
-  run=(npx -y -p "$srt_pkg" srt --settings "$settings" -- env "${loop_env[@]}" bash "$here/night-loop.sh" "$folder" "$hours")
+  settings="$state/$tag.srt.json"   # outside the box's own home: the box cannot loosen its rules
+  run=(env "npm_config_cache=$state/npx" npx -y -p "$srt_pkg" srt --settings "$settings" --
+       env "${inside[@]}" "CLAUDE_CONFIG_DIR=$own/claude" "CODEX_HOME=$own/codex" "NIGHTCALL_HOME=$own/nightcall"
+       "POCKETCALL_HOME=$own/pocketcall" "npm_config_cache=$own/npm" "TMPDIR=$own/tmp" "CLAUDE_CODE_TMPDIR=$own/tmp"
+       "PATH=$own/bin:$PATH" bash "$here/night-loop.sh" "$folder" "$hours")
 fi
 
-[ "$cmd" = rules ] && { srt_settings; exit 0; }   # just the sandbox rules (JSON), for checks
+if [ "$cmd" = rules ]; then srt_settings; exit 0; fi
 if [ "$cmd" = plan ]; then
   echo "mode: $mode"
-  echo "folder: $folder (the only writable place besides Claude's and Codex's own state)"
-  echo "sign-in: claude $([ -n "$claude_token" ] && echo "token from the Keychain" || echo "API key or none") / codex $([ -n "$codex_key" ] && echo "key from the Keychain" || echo "its own sign-in")"
+  echo "folder: $folder (the only place of yours the box reads and writes; its own homes: $own)"
+  echo "sign-in: claude $([ -n "$claude_token" ] && echo "token from the Keychain" || echo "API key") / codex $([ -n "$codex_key" ] && echo "key from the Keychain" || echo "its own sign-in, copied for the night")"
   echo "stop: bash $here/box.sh stop \"$folder\""
   printf 'command:'; printf ' "%s"' "${run[@]}"; echo
   [ "$mode" = srt ] && { echo "rules:"; srt_settings; }
@@ -152,18 +167,31 @@ if [ "$cmd" = plan ]; then
 fi
 
 echo "$(date '+%F %T') nightcall box ($mode): only $folder, network by box/allow.txt; stop: bash $here/box.sh stop \"$folder\"" | tee -a "$folder/night-loop.log"
+mkdir -p "$state" "$own/claude" "$own/codex" "$own/nightcall" "$own/pocketcall/board" "$own/npm" "$own/tmp" "$own/bin"
+chmod 700 "$state" "$own"
+echo $$ > "$pidfile"
 [ -n "$claude_token" ] && export CLAUDE_CODE_OAUTH_TOKEN="$claude_token"
-[ -n "$codex_key" ] && export OPENAI_API_KEY="$codex_key"
+[ -n "$codex_key" ] && export OPENAI_API_KEY="$codex_key" CODEX_API_KEY="$codex_key"
+# Codex on a ChatGPT subscription: its sign-in file goes into the box's own Codex home for this night
+# and is taken back out when the night ends
+if [ -z "$codex_key" ] && [ -f "$HOME/.codex/auth.json" ]; then
+  install -m 600 "$HOME/.codex/auth.json" "$own/codex/auth.json"
+fi
+# the box's claude loads the nightcall plugin from this copy (its own Claude home has no plugins)
+if [ "$mode" = srt ] && real=$(command -v claude); then
+  printf '#!/bin/sh\nexec "%s" --plugin-dir "%s" "$@"\n' "$real" "$root" > "$own/bin/claude"
+  chmod 755 "$own/bin/claude"
+fi
+bash "$here/awake.sh" "$hours" >/dev/null 2>&1 || true   # caffeinate from the outside: the box closes it
+python3 "$here/box/relay.py" --src "$own/pocketcall/board" --folder "$folder" --hours "$hours" --watch $$ \
+  </dev/null >/dev/null 2>&1 &
 if [ "$mode" = docker ]; then
   docker image inspect "$image" >/dev/null 2>&1 || docker build -t "$image" "$here/box" || exit 4
-  # keep this computer awake from the outside: the container has no caffeinate
-  bash "$here/awake.sh" "$hours" >/dev/null 2>&1 || true
-  exec "${run[@]}"
+  "${run[@]}"
+else
+  srt_settings > "$settings"
+  "${run[@]}"
 fi
-srt_settings > "$settings"
-bash "$here/awake.sh" "$hours" >/dev/null 2>&1 || true   # caffeinate from the outside: the sandbox closes it
-echo $$ > "$pidfile"
-"${run[@]}"
 rc=$?
-rm -f "$pidfile"
+rm -f "$pidfile" "$own/codex/auth.json"
 exit $rc

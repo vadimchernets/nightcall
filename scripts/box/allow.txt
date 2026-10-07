@@ -11,6 +11,13 @@ statsig.anthropic.com
 api.openai.com
 chatgpt.com
 auth.openai.com
+# Gemini
+generativelanguage.googleapis.com
+cloudcode-pa.googleapis.com
+oauth2.googleapis.com
+# the phone: pocketcall's Telegram and ntfy (your own ntfy server - one line in box-allow.txt)
+api.telegram.org
+ntfy.sh
 # git over https and package registries
 github.com
 api.github.com

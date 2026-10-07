@@ -5,7 +5,7 @@ Codex, then Gemini CLI. When the Claude limit runs out (or is about to), the nex
 your own Codex, then your own Gemini; when the Claude limit is back, the work comes back to Claude.
 The phone hears "switched to Codex - the work goes on".
 
-    python3 mine.py on  [--order claude,codex,gemini] [--below 10]
+    python3 mine.py on  [--order claude,codex,gemini] [--below 10] [--reserve 20]
     python3 mine.py off
     python3 mine.py status                    # which subscriptions, signed in or not, resting until, left %
     python3 mine.py meter [--json]            # how much is left in each subscription, one line
@@ -29,8 +29,11 @@ HOW MUCH IS LEFT (the sensor, from diffcall's capacity package, core-poly/capaci
           the window's own reset time.
   Codex   `codex app-server`, method account/rateLimits/read - OpenAI's own numbers, read live.
   Gemini  publishes no remaining percentage: it moves on its own limit message.
-With a fresh reading below the threshold (--below, default 10%) the work moves BEFORE the limit
-stops a step in the middle; without one it moves on the limit message, as before.
+With a fresh reading below the threshold (--below, default 10% of the five-hour window) the work moves BEFORE
+the limit stops a step in the middle; without one it moves on the limit message, as before.
+THE WEEK'S RESERVE (--reserve, default 20%): a night must not burn the whole week. When the weekly window of a
+subscription falls to the reserve, that subscription rests until its week resets and the work goes on in the
+next one; the board says "Claude keeps 20% of the week". --reserve 0 spends the week to the end.
 
 Files: ~/.nightcall/mine.json, ~/.nightcall/quota/ (NIGHTCALL_HOME moves them). No login, token or
 key is read or kept: each program uses its own usual sign-in on this computer.
@@ -84,6 +87,7 @@ def load():
         if isinstance(data, dict):
             data.setdefault("order", list(ENGINES))
             data.setdefault("below", 10)
+            data.setdefault("reserve", 20)
             data.setdefault("resting", {})
             return data
     except Exception:
@@ -225,17 +229,35 @@ def read_codex(timeout=8):
     return []
 
 
-def left(engine, live=True):
-    """The tightest fresh reading for this engine (percent), or None when nobody can say."""
+def readings(engine, live=True):
     ws = []
     if engine == "codex" and live:
         ws = read_codex()
     if not ws and engine in ("claude", "codex"):
         ws, _ = read_cache(engine)
+    return ws
+
+
+def left(engine, live=True):
+    """The tightest fresh reading for this engine (percent), or None when nobody can say."""
+    ws = readings(engine, live)
     if not ws:
         return None
     tight = min(ws, key=lambda w: w["left"])
     return tight
+
+
+LONG = ("weekly", "monthly")
+
+
+def spent(data, ws):
+    """The window that says "move on now": a short one below --below, or a week at its reserve."""
+    for w in sorted(ws, key=lambda w: w["left"]):
+        if w["type"] in LONG and w["left"] <= float(data.get("reserve", 20)) and float(data.get("reserve", 20)) > 0:
+            return w, f"keeps {round(float(data.get('reserve', 20)))}% of the week"
+        if w["type"] not in LONG and w["left"] < float(data.get("below", 10)):
+            return w, f"{round(w['left'])}% left"
+    return None, ""
 
 
 def meter(data, live=True):
@@ -246,6 +268,7 @@ def meter(data, live=True):
         w = left(e, live)
         back = resting(data, e)
         out.append({"engine": e, "left": round(w["left"]) if w else None, "window": w["type"] if w else "",
+                    "why": (data.get("why") or {}).get(e, "") if back else "",
                     "resets": w.get("resets") if w else None, "resting_until": fmt(back) if back else ""})
     return out
 
@@ -253,7 +276,9 @@ def meter(data, live=True):
 def meter_line(rows):
     parts = []
     for r in rows:
-        if r["resting_until"]:
+        if r["resting_until"] and r.get("why", "").startswith("keeps"):
+            parts.append(f"{NAMES[r['engine']]} {r['why']}, back {r['resting_until'][5:]}")
+        elif r["resting_until"]:
             parts.append(f"{NAMES[r['engine']]} rests until {r['resting_until'][-5:]}")
         elif r["left"] is not None:
             parts.append(f"{NAMES[r['engine']]} {r['left']}%")
@@ -271,12 +296,13 @@ def cmd_on(a):
         print(f"Unknown program: {', '.join(bad) or '-'}. Use: {', '.join(ENGINES)}.")
         return 2
     data = load() or {"resting": {}}
-    data.update({"on": True, "order": order, "below": a.below})
+    data.update({"on": True, "order": order, "below": a.below, "reserve": a.reserve})
     save(data)
     found = [e for e in order if installed(e)]
     missing = [e for e in order if not installed(e)]
     print(f"My subscriptions: {' -> '.join(NAMES[e] for e in order)}; the work moves on below {a.below}% left "
-          f"or on a limit, and comes back to {NAMES[order[0]]} when it is back.")
+          f"or on a limit, and comes back to {NAMES[order[0]]} when it is back."
+          + (f" Each keeps {a.reserve:g}% of its week in reserve." if a.reserve > 0 else ""))
     if missing:
         print(f"Not on this computer yet (skipped until installed): {', '.join(missing)}.")
     if not found:
@@ -301,7 +327,7 @@ def cmd_status(a):
         return 1
     if a.quiet:
         return 0
-    print(f"My subscriptions (move on below {data['below']}% left):")
+    print(f"My subscriptions (move on below {data['below']}% left, keep {data.get('reserve', 20):g}% of the week):")
     for r in meter(data):
         state = f"resting until {r['resting_until']}" if r["resting_until"] else "free"
         pct = f"{r['left']}% left ({r['window']})" if r["left"] is not None else "left: no reading"
@@ -324,13 +350,14 @@ def choose(data, after=""):
     for e in data["order"]:
         if not installed(e) or resting(data, e, at):
             continue
-        w = left(e, live=(e != after))
-        if w is not None and w["left"] < float(data.get("below", 10)):
-            # nearly empty: rest it until the window resets, so the step is not cut in the middle
+        w, why = spent(data, readings(e, live=(e != after)))
+        if w is not None:
+            # nearly empty, or the week down to its reserve: rest it until that window resets, so the step is not
+            # cut in the middle and the week is not burnt in one night
             back = datetime.datetime.fromtimestamp(w["resets"]) if w.get("resets") else \
                 at + datetime.timedelta(minutes=UNKNOWN_BACK_MIN)
             data.setdefault("resting", {})[e] = fmt(back)
-            data.setdefault("why", {})[e] = f"{round(w['left'])}% left"
+            data.setdefault("why", {})[e] = why
             save(data)
             continue
         return e
@@ -420,6 +447,7 @@ def main(argv=None):
     p = sub.add_parser("on")
     p.add_argument("--order", default=",".join(ENGINES))
     p.add_argument("--below", type=float, default=10, help="move on when less than this %% is left")
+    p.add_argument("--reserve", type=float, default=20, help="keep this %% of each week; 0 spends it all")
     sub.add_parser("off")
     p = sub.add_parser("status")
     p.add_argument("--quiet", action="store_true")

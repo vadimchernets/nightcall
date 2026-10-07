@@ -38,9 +38,11 @@ sign-in on this computer; nothing about logins moves.
    `npm i -g @google/gemini-cli`, then `gemini` once to sign in with the Google account. Show the commands; the person
    signs in themselves.
 
-2. **Turn it on**, with the order and the threshold (default: Claude -> Codex -> Gemini, move on below 10% left):
+2. **Turn it on**, with the order, the threshold and the week's reserve (default: Claude -> Codex -> Gemini, move on
+   below 10% of the five-hour window, and keep 20% of each week - when a week falls to its reserve, that subscription
+   rests until its week resets, so one night does not burn the week; ask the person, `--reserve 0` spends it all):
    ```
-   sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/mine.py on --order claude,codex,gemini --below 10
+   sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/mine.py on --order claude,codex,gemini --below 10 --reserve 20
    ```
 
 3. **The remaining-% sensor for Claude** (once): Claude Code tells how much of the five-hour and weekly limits is left

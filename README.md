@@ -141,7 +141,7 @@ Gemini CLI, from the same TASK.md, PLAN.md and PROGRESS.md; when the Claude limi
 back to Claude. The phone hears "switched to codex - the work goes on", the board shows what is left.
 
 ```
-python3 scripts/mine.py on --order claude,codex,gemini --below 10
+python3 scripts/mine.py on --order claude,codex,gemini --below 10 --reserve 20   # keep 20% of each week
 python3 scripts/mine.py status        # free or resting until HH:MM, % left in each
 bash scripts/night-loop.sh "<task folder>" 12
 ```

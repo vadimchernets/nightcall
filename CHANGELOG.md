@@ -11,6 +11,9 @@
   keeps the `rate_limits` numbers (five-hour / weekly, used %, reset time; nothing else of the payload); Codex is read
   live through `codex app-server` -> `account/rateLimits/read`. A fresh reading below `--below` (default 10%) hands the
   work over before a limit cuts a step in the middle; a stale one is not used.
+- The week's reserve (`mine.py on --reserve`, default 20%): when a subscription's weekly window falls to the reserve,
+  it rests until its week resets and the night goes on in the next one, so one night does not burn the week; the
+  board's meter says "Claude keeps 20% of the week, back <day time>". `--reserve 0` spends the week to the end.
 - The board: each night line carries the task folder, the command that goes on with the night (the phone's Continue
   button in pocketcall 0.5.0) and, in "my subscriptions", the meter (`--meter`); a change of hands rings at once
   (`--say`). With pocketcall before 0.5.0 the line goes without these fields. Tests: `tests/test_mine.py`.

@@ -189,3 +189,36 @@ def test_the_family_takes_precedence_and_off_means_claude_only():
     env["NIGHTCALL_MINE"] = "off"
     task, r = loop(env, root)
     assert rounds(task) == ["round by claude"] * 3
+
+
+def week_low(env, used=85):
+    reset = int(time.time()) + 3 * 86400
+    payload = {"rate_limits": {"five_hour": {"used_percentage": 10}, "seven_day": {"used_percentage": used, "resets_at": reset}}}
+    mine(env, "capture", inp=json.dumps(payload))
+    return reset
+
+
+def test_the_week_s_reserve_hands_the_night_over_early_and_the_board_says_so():
+    env, home, root, marks = setup()
+    env["NIGHTCALL_MINE_CODEX_READ"] = "off"
+    r = mine(env, "on")
+    assert "keeps 20% of its week" in r.stdout
+    reset = week_low(env, used=85)                  # 15% of the week left: below the 20% reserve
+    task, r = loop(env, root)
+    assert rounds(task) == ["round by codex"] * 3, r.stdout + r.stderr
+    back = datetime.datetime.fromtimestamp(reset)
+    assert f"Claude: keeps 20% of the week, back at {back:%H:%M} -> Codex" in open(os.path.join(task, "PROGRESS.md")).read()
+    data = json.load(open(os.path.join(home, "mine.json")))
+    assert data["resting"]["claude"] == back.strftime("%Y-%m-%d %H:%M")
+    assert mine(env, "meter").stdout.startswith("Claude keeps 20% of the week, back ")
+
+
+def test_above_the_reserve_and_with_reserve_zero_claude_works_on():
+    env, home, root, marks = setup()
+    env["NIGHTCALL_MINE_CODEX_READ"] = "off"
+    mine(env, "on")
+    week_low(env, used=70)                          # 30% left: above the reserve
+    assert mine(env, "pick").stdout.strip() == "claude"
+    mine(env, "on", "--reserve", "0")
+    week_low(env, used=95)                          # 5% of the week, reserve off: spend it
+    assert mine(env, "pick").stdout.strip() == "claude"

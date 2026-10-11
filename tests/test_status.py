@@ -229,7 +229,33 @@ def test_push_sends_the_card_only_and_no_night_fields():
     line = json.loads(open(log).read().splitlines()[-1])
     for flag in ("--kind", "--hours", "--end", "--box", "--meter"):
         assert flag not in line
-    assert board_args(line, "--note") == ""          # the phone shows the card in its own words, once
+    note = board_args(line, "--note")                # the phone shows the card in its own words, once:
+    assert note == "" or note.startswith("until ")   # the note is at most the "until HH:MM" of the night
+    assert "steps" not in note
+
+
+def test_push_of_an_unarmed_night_says_waiting_and_not_stopped():
+    home, folder = tempfile.mkdtemp(), night_folder()
+    fake = os.path.join(home, "board.py")
+    open(fake, "w").write(FAKE_BOARD)
+    log = os.path.join(home, "board.log")
+    env = env_for(home, NIGHTCALL_BOARD=fake, BOARD_LOG=log)
+    tool("status.py", env, "continue", "--dir", folder)
+    line = json.loads(open(log).read().splitlines()[-1])
+    assert board_args(line, "--state") == "waiting"
+
+
+def test_two_wants_at_once_never_share_an_id():
+    import ledger
+    import threading
+    folder = tempfile.mkdtemp()
+    ids = []
+    threads = [threading.Thread(target=lambda: ids.append(ledger.want(folder, "x"))) for _ in range(12)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sorted(ids) == list(range(1, 13))
 
 
 def test_a_pocketcall_without_card_fields_gets_the_card_as_words():

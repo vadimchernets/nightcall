@@ -17,10 +17,16 @@ Standard library only.
 """
 
 import argparse
+import contextlib
 import json
 import os
 import sys
 import time
+
+try:
+    import fcntl
+except ImportError:  # Windows: the single-write append is all there is
+    fcntl = None
 
 NAME = "LEDGER.jsonl"
 VERDICTS = ("approved", "declined")
@@ -76,16 +82,35 @@ def append(folder, row):
         os.close(fd)
 
 
+@contextlib.contextmanager
+def locked(folder):
+    """An exclusive lock on the ledger (fcntl where there is one): the id is read and the line appended under it."""
+    handle = None
+    try:
+        os.makedirs(os.path.dirname(path_of(folder)), exist_ok=True)
+        handle = open(path_of(folder) + ".lock", "a")
+        if fcntl:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+    except OSError:
+        pass
+    try:
+        yield
+    finally:
+        if handle:
+            handle.close()  # closing the file releases the lock
+
+
 def want(folder, what, why="", default="", now=None, done=False):
     """done=True: the want is already carried out (the council decided it) and can be undone: it is shown,
     but it does not wait for the person."""
-    rows = read(folder)
-    new_id = (max([w["id"] for w in rows]) if rows else 0) + 1
-    row = {"kind": "want", "id": new_id, "at": now or time.time(), "what": short(what),
-           "why": short(why), "default": short(default)}
-    if done:
-        row["done"] = True
-    append(folder, row)
+    with locked(folder):
+        rows = read(folder)
+        new_id = (max([w["id"] for w in rows]) if rows else 0) + 1
+        row = {"kind": "want", "id": new_id, "at": now or time.time(), "what": short(what),
+               "why": short(why), "default": short(default)}
+        if done:
+            row["done"] = True
+        append(folder, row)
     return new_id
 
 

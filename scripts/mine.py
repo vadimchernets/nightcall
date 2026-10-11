@@ -209,7 +209,7 @@ def read_codex(timeout=8):
     if os.environ.get("NIGHTCALL_MINE_CODEX_READ", "on") == "off" or not installed("codex"):
         return []
     msgs = [{"jsonrpc": "2.0", "id": 1, "method": "initialize",
-             "params": {"clientInfo": {"name": "nightcall", "version": "0.5.0"}}},
+             "params": {"clientInfo": {"name": "nightcall", "version": "0.6.0"}}},
             {"jsonrpc": "2.0", "method": "initialized", "params": {}},
             {"jsonrpc": "2.0", "id": 2, "method": "account/rateLimits/read", "params": {}}]
     # the app-server answers only while its stdin stays open: write, keep it open, read until the answer

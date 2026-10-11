@@ -172,7 +172,8 @@ def checks_text(c):
 
 
 def board_state(c):
-    return {"working": "working", "done": "done", "stopped": "failed"}.get(c["state"], "")
+    # an unarmed night (plan there, nothing running) is "waiting": the phone must not keep saying "Stopped"
+    return {"working": "working", "done": "done", "stopped": "failed", "idle": "waiting"}.get(c["state"], "")
 
 
 def summary(c):
@@ -231,10 +232,12 @@ def push(folder):
     if not state:
         return 0
     import night
-    # The phone shows the card fields in its own words, so the note stays empty; only a pocketcall that knows no
-    # card fields (exit code 2) gets the card as words in the note. The night's kind, length, end, box and meter are
-    # not sent: the board keeps the ones the night itself set.
-    args = argparse.Namespace(dir=folder, state=state, note="", fallback_note=summary(c), rest=0, kind="", hours=0,
+    # The phone shows the card fields in its own words, so the note is only the "until HH:MM" line that night-loop.sh
+    # sets (not wiped every round); only a pocketcall that knows no card fields (exit code 2) gets the card as words
+    # in the note. The night's kind, length, end, box and meter are not sent: the board keeps the ones the night set.
+    note = f"until {c['until']}" if state == "working" and c["until"] else (
+        "not running: start it with /nightcall:start" if state == "waiting" else "")
+    args = argparse.Namespace(dir=folder, state=state, note=note, fallback_note=summary(c), rest=0, kind="", hours=0,
                               end=0, box=False, meter="", say=False, steps=steps_text(c), checks=checks_text(c),
                               last=c["last"], waits=len(c["waits"]))
     try:

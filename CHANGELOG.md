@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-10-11
 
 - A transparent night. `scripts/status.py` (skill `/nightcall:status`): the night's card - state, last action, plan
   steps, checks closed with evidence, what waits for the person - with `stop` / `continue` and `push`, which puts the
@@ -8,6 +8,11 @@
   The Stop hook pushes it after every round, from a process of its own. `scripts/ledger.py`: the ledger "what the AI
   wanted - what the person approved" (`LEDGER.jsonl`, append-only); `team.py decide` and `hold` write to it, skills
   start and morning use it. Tests: `tests/test_status.py`.
+- After the critic: a night with a plan and nothing running is pushed to the board as "waiting" (with "start it with
+  /nightcall:start"), not "stopped"; a working night keeps its "until HH:MM" note instead of having it wiped every
+  round; two wants written at the same moment never share a ledger id (`ledger.py` reads the id and appends under one
+  lock). With pocketcall 0.6.0 a night started without `--box` under the same job id as an earlier box night is
+  continued from the phone outside the box. Tests: `tests/test_status.py`.
 
 ## 0.5.0 — 2026-10-07
 

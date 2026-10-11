@@ -8,6 +8,7 @@
     python3 night.py end
     python3 night.py board --dir <task folder> --state working|limit|done|failed [--note <text>] [--rest <seconds>]
                            [--kind night --hours N --end <epoch> [--box]] [--meter <left % line>] [--say]
+                           [--steps 3/7 --checks 2/5 --last <text> --waits N]   # the task card the phone shows (status.py push)
 
 `begin` creates the task folder with TASK.md (the person's words, as given), a PLAN.md and a
 PROGRESS.md skeleton if they are not there yet, and ALWAYS puts the night on a safety net, without
@@ -231,12 +232,14 @@ def cmd_board(a):
         cmd = [sys.executable, script, "put", "--id", job_id, "--name", name, "--where", "nightcall",
                "--state", a.state, "--note", a.note, "--until", until, "--ring"]   # a night rings, away or not
         extra = ["--folder", folder, "--meter", a.meter] + (["--say"] if a.say else []) + \
+            ([f"--steps={a.steps}", f"--checks={a.checks}", f"--last={a.last}", f"--waits={a.waits}"]
+             if getattr(a, "steps", "") or getattr(a, "waits", 0) or getattr(a, "last", "") else []) + \
             (["--kind", a.kind, "--hours", str(a.hours), "--end", str(a.end)] if a.kind else []) + \
             (["--box"] if a.box else [])
         try:
             r = subprocess.run(cmd + extra, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                stderr=subprocess.DEVNULL, timeout=30)
-            if r.returncode == 2:   # pocketcall before 0.5.0 knows no folder/meter: the line itself still goes
+            if r.returncode == 2:   # pocketcall before 0.6.0 knows no card fields (0.5.0: no folder/meter): the line itself still goes
                 subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                timeout=30)
             return 0
@@ -250,7 +253,8 @@ def cmd_board(a):
             json.dump({"id": job_id, "name": name, "where": "nightcall", "state": a.state,
                        "note": " ".join(a.note.split())[:160], "until": until, "at": time.time(),
                        "folder": folder, "kind": a.kind, "hours": a.hours, "end": a.end, "box": bool(a.box),
-                       "meter": a.meter},
+                       "meter": a.meter, "steps": getattr(a, "steps", ""), "checks": getattr(a, "checks", ""),
+                       "last": getattr(a, "last", ""), "waits": getattr(a, "waits", 0)},
                       fh, ensure_ascii=False)
         os.chmod(path + ".tmp", 0o600)
         os.replace(path + ".tmp", path)
@@ -283,6 +287,10 @@ def main(argv=None):
     o.add_argument("--box", action="store_true", help="the night runs in the box: Continue keeps it there")
     o.add_argument("--meter", default="", help="how much each subscription has left, one line")
     o.add_argument("--say", action="store_true", help="ring this line now even if the state did not change")
+    o.add_argument("--steps", default="", help="the card: plan steps done, like 3/7")
+    o.add_argument("--checks", default="", help="the card: checklist items closed with evidence, like 2/5")
+    o.add_argument("--last", default="", help="the card: the last action of the night")
+    o.add_argument("--waits", type=int, default=0, help="the card: how many things wait for the person (the ledger)")
     a = ap.parse_args(argv)
     return {"begin": cmd_begin, "arm": cmd_arm, "status": cmd_status, "end": cmd_end,
             "board": cmd_board}[a.cmd](a)

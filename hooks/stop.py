@@ -31,6 +31,20 @@ def related(cwd, folder):
     return cwd == folder or cwd.startswith(folder + os.sep) or folder.startswith(cwd.rstrip(os.sep) + os.sep)
 
 
+def push_card(folder):
+    """The night's task card (step, checks, last action, what waits) onto the board for the phone. It goes from a
+    process of its own, so the session never waits for it; any trouble is silent."""
+    if os.environ.get("NIGHTCALL_BOARD", "").lower() == "off":
+        return
+    try:
+        import subprocess
+        script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "status.py")
+        subprocess.Popen([sys.executable, script, "push", "--dir", folder], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    except Exception:
+        pass
+
+
 def main():
     try:
         event = json.load(sys.stdin)
@@ -83,6 +97,7 @@ def main():
             json.dump(run, fh, ensure_ascii=False, indent=2)
     except Exception:
         pass
+    push_card(folder)
     print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
     return 0
 

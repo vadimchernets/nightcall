@@ -610,6 +610,16 @@ def decisions_file(folder):
     return path
 
 
+def note_in_ledger(folder, what, why, meanwhile):
+    """The same entry in the ledger (ledger.py): what the AI wanted - what the person decides in the morning."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import ledger
+        ledger.want(folder or os.getcwd(), what, why, meanwhile)
+    except Exception:  # the council's work never stops on a ledger line
+        pass
+
+
 def cmd_decide(args):
     path = decisions_file(args.dir)
     undo = f"git revert {args.commit}" if args.commit else (args.undo or "manually: revert to how it was before the decision")
@@ -618,6 +628,7 @@ def cmd_decide(args):
                  f"- Why: {args.why}\n- Who advised: {args.who}\n"
                  f"- Other options: {args.alt or '—'}\n- Commit: {args.commit or '—'}\n"
                  f"- Undo: `{undo}`\n- Fix it like this: \"…\" — write it in the morning, Claude will redo it\n")
+    note_in_ledger(args.dir, f"the council decided: {args.what}", args.why, f"done as decided; undo: {undo}")
     print(json.dumps({"decisions": path, "undo": undo}, ensure_ascii=False))
     return 0
 
@@ -627,6 +638,7 @@ def cmd_hold(args):
     with open(path, "a", encoding="utf-8") as fh:
         fh.write(f"\n## {now():%d.%m %H:%M} — waiting for your answer: {args.question}\n"
                  f"- On hold without an answer: {args.waits or '—'}\n- Options: {args.alt or '—'}\n- Your answer: \n")
+    note_in_ledger(args.dir, args.question, "", f"on hold: {args.waits or '-'}")
     print(json.dumps({"decisions": path, "paused": args.waits or args.question}, ensure_ascii=False))
     return 0
 

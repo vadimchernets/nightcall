@@ -159,6 +159,15 @@ leaving (§0e, `decide_when` in `seats.json`). Never stop the night and wait for
 - Never decided by the council, in either mode: sending, publishing, paying, deleting with no way
   back, signing in with a password — always `hold`.
 
+**The ledger — what you wanted, what the person approved.** Every `decide` and every `hold` is also one line in
+`LEDGER.jsonl` of the task folder (`team.py` writes it). A thing that is the person's to decide and that is not
+a council question - a message you would send, money, a publication, a change outside the fence - you write
+yourself before you do the safe part of it and go on:
+`sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/ledger.py want --dir "<folder>" --what "…" --why "…" --default "what I did meanwhile"`.
+The person answers each one in the morning with one word (`/nightcall:status`), and the phone's card counts how
+many wait. After each step, `PROGRESS.md`'s journal line is what the card shows as "last action": one line, what
+was done and how it was checked.
+
 **Only inside the task folder** (the fence in its `CLAUDE.md`). **Nothing is deleted at night** that cannot be brought back: move to a `_removed/` folder instead,
 or rely on the git commit.
 

@@ -55,6 +55,9 @@ Night: <start> – <end>. Steps in the plan: N. Done: X. Not done: Y.
 - Waiting for your answer: <question> — options: <…> — on hold without an answer: <what waits> (each `hold` entry; mode `morning` and the never-at-night list)
 - <a default taken at night outside decisions.md> — chosen: <value> — to change it: <how> (from "Check in the morning" in PROGRESS.md)
 - Questions for web chats, left for the morning: `morning-advice.md` (<how many>) — only if the file exists
+- The ledger: `sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/ledger.py show --dir "<folder>"` - every line that waits
+  (what the AI wanted, why, what it did meanwhile), one line each, and the ones decided already with the time -
+  then offer to take each answer (`/nightcall:status`).
 
 ## Done
 - <step> — <result, where it is> — confirmed by an artifact: <commit / file / test run> | words only

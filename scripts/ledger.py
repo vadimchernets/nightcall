@@ -54,7 +54,7 @@ def read(folder):
         if row.get("kind") == "want":
             wants[row["id"]] = {"id": row["id"], "at": row.get("at", 0), "what": row.get("what", ""),
                                 "why": row.get("why", ""), "default": row.get("default", ""),
-                                "verdict": "pending", "decided_at": 0, "note": ""}
+                                "verdict": "done" if row.get("done") else "pending", "decided_at": 0, "note": ""}
             order.append(row["id"])
         elif row.get("kind") == "decision" and row["id"] in wants and row.get("verdict") in VERDICTS:
             wants[row["id"]].update(verdict=row["verdict"], decided_at=row.get("at", 0), note=row.get("note", ""))
@@ -76,11 +76,16 @@ def append(folder, row):
         os.close(fd)
 
 
-def want(folder, what, why="", default="", now=None):
+def want(folder, what, why="", default="", now=None, done=False):
+    """done=True: the want is already carried out (the council decided it) and can be undone: it is shown,
+    but it does not wait for the person."""
     rows = read(folder)
     new_id = (max([w["id"] for w in rows]) if rows else 0) + 1
-    append(folder, {"kind": "want", "id": new_id, "at": now or time.time(), "what": short(what),
-                    "why": short(why), "default": short(default)})
+    row = {"kind": "want", "id": new_id, "at": now or time.time(), "what": short(what),
+           "why": short(why), "default": short(default)}
+    if done:
+        row["done"] = True
+    append(folder, row)
     return new_id
 
 
@@ -100,13 +105,14 @@ def render(rows):
         return "The ledger is empty: the AI wanted nothing that was yours to decide."
     out = ["What the AI wanted - what you decided:"]
     for w in rows:
-        mark = {"pending": "WAITS FOR YOU", "approved": "approved", "declined": "declined"}[w["verdict"]]
+        mark = {"pending": "WAITS FOR YOU", "done": "done, can be undone", "approved": "approved",
+                "declined": "declined"}[w["verdict"]]
         out.append(f"{w['id']}. [{mark}] {w['what']}")
         if w["why"]:
             out.append(f"     why: {w['why']}")
         if w["default"]:
             out.append(f"     meanwhile: {w['default']}")
-        if w["verdict"] != "pending":
+        if w["verdict"] not in ("pending", "done"):
             out.append(f"     {w['verdict']} {when(w['decided_at'])}" + (f": {w['note']}" if w["note"] else ""))
     return "\n".join(out)
 

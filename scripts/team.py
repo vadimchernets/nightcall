@@ -610,12 +610,13 @@ def decisions_file(folder):
     return path
 
 
-def note_in_ledger(folder, what, why, meanwhile):
-    """The same entry in the ledger (ledger.py): what the AI wanted - what the person decides in the morning."""
+def note_in_ledger(folder, what, why, meanwhile, done=False):
+    """The same entry in the ledger (ledger.py): what the AI wanted - what the person decides in the morning.
+    done: the council already carried it out (it can be undone), so it does not count as waiting."""
     try:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import ledger
-        ledger.want(folder or os.getcwd(), what, why, meanwhile)
+        ledger.want(folder or os.getcwd(), what, why, meanwhile, done=done)
     except Exception:  # the council's work never stops on a ledger line
         pass
 
@@ -628,7 +629,7 @@ def cmd_decide(args):
                  f"- Why: {args.why}\n- Who advised: {args.who}\n"
                  f"- Other options: {args.alt or '—'}\n- Commit: {args.commit or '—'}\n"
                  f"- Undo: `{undo}`\n- Fix it like this: \"…\" — write it in the morning, Claude will redo it\n")
-    note_in_ledger(args.dir, f"the council decided: {args.what}", args.why, f"done as decided; undo: {undo}")
+    note_in_ledger(args.dir, f"the council decided: {args.what}", args.why, f"done as decided; undo: {undo}", done=True)
     print(json.dumps({"decisions": path, "undo": undo}, ensure_ascii=False))
     return 0
 

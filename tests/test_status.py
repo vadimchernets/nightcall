@@ -205,4 +205,74 @@ def test_council_decisions_and_holds_land_in_the_ledger():
     rows = ledger.read(folder)
     assert [w["what"] for w in rows] == ["the council decided: use postgres", "pay for the domain?"]
     assert "git revert abc123" in rows[0]["default"] and rows[1]["default"] == "on hold: step 5"
-    assert all(w["verdict"] == "pending" for w in rows)
+    # a council decision is carried out already (it can be undone): it is shown, it does not wait for the person
+    assert [w["verdict"] for w in rows] == ["done", "pending"]
+    assert [w["what"] for w in ledger.pending(folder)] == ["pay for the domain?"]
+    status.HOME = home
+    c = status.card(folder)
+    assert len(c["waits"]) == 1 and c["council"] == 1 and c["decided"] == 0
+    assert "done, can be undone" in ledger.render(rows)
+
+
+def board_args(line, flag):
+    return line[line.index(flag) + 1] if flag in line else None
+
+
+def test_push_sends_the_card_only_and_no_night_fields():
+    home, folder = tempfile.mkdtemp(), night_folder()
+    arm(home, folder)
+    fake = os.path.join(home, "board.py")
+    open(fake, "w").write(FAKE_BOARD)
+    log = os.path.join(home, "board.log")
+    env = env_for(home, NIGHTCALL_BOARD=fake, BOARD_LOG=log)
+    tool("status.py", env, "push", "--dir", folder)
+    line = json.loads(open(log).read().splitlines()[-1])
+    for flag in ("--kind", "--hours", "--end", "--box", "--meter"):
+        assert flag not in line
+    assert board_args(line, "--note") == ""          # the phone shows the card in its own words, once
+
+
+def test_a_pocketcall_without_card_fields_gets_the_card_as_words():
+    home, folder = tempfile.mkdtemp(), night_folder()
+    arm(home, folder)
+    fake = os.path.join(home, "board.py")
+    open(fake, "w").write(FAKE_BOARD + "if any(a.startswith('--steps') for a in sys.argv): sys.exit(2)\n")
+    log = os.path.join(home, "board.log")
+    env = env_for(home, NIGHTCALL_BOARD=fake, BOARD_LOG=log)
+    tool("status.py", env, "push", "--dir", folder)
+    lines = [json.loads(x) for x in open(log).read().splitlines()]
+    assert len(lines) == 2 and "steps 2/3" in board_args(lines[1], "--note")
+
+
+def test_a_loop_night_shows_working_and_the_end_of_it_is_seen():
+    home, folder = tempfile.mkdtemp(), night_folder()
+    status.HOME = home
+    env = env_for(home)
+    end = time.time() + 3600
+    assert tool("night.py", env, "loop", "--dir", folder, "--pid", str(os.getpid()), "--end", str(end)).returncode == 0
+    c = status.card(folder)                          # no active.json: the loop is not a session
+    assert c["state"] == "working" and c["can_stop"] and c["until"]
+    assert "WORKING" in tool("status.py", env, "show", "--dir", folder).stdout
+    tool("night.py", env, "loop", "--dir", folder, "--off")
+    assert status.card(folder)["state"] == "idle"
+
+
+def test_board_line_without_a_card_reads_it_from_the_folder_and_the_stop_hook_pushes_the_end():
+    home, folder = tempfile.mkdtemp(), night_folder()
+    arm(home, folder)
+    fake = os.path.join(home, "board.py")
+    open(fake, "w").write(FAKE_BOARD)
+    log = os.path.join(home, "board.log")
+    env = env_for(home, NIGHTCALL_BOARD=fake, BOARD_LOG=log)
+    tool("night.py", env, "board", "--dir", folder, "--state", "working", "--note", "round 2")
+    line = json.loads(open(log).read().splitlines()[-1])
+    assert "--steps=2/3" in line and board_args(line, "--note") == "round 2"
+    open(os.path.join(folder, "MORNING.md"), "w").close()
+    subprocess.run([sys.executable, os.path.join(os.path.dirname(S), "hooks", "stop.py")], input='{"session_id":"A"}',
+                   capture_output=True, text=True, env=env, timeout=60)
+    for _ in range(50):
+        if len(open(log).read().splitlines()) > 1:
+            break
+        time.sleep(0.1)
+    last = json.loads(open(log).read().splitlines()[-1])
+    assert board_args(last, "--state") == "done"

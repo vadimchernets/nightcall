@@ -68,6 +68,7 @@ def main():
     elif not related(event.get("cwd", ""), folder):
         return 0
     if os.path.exists(os.path.join(folder, "MORNING.md")) or os.path.exists(os.path.join(folder, "STOP")):
+        push_card(folder)   # the night is over or stopped: the phone must not keep saying "working"
         return 0
     try:
         until = datetime.datetime.fromisoformat(run["until"])

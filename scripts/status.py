@@ -14,6 +14,7 @@ of the night that is on is used. Standard library only.
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -94,13 +95,43 @@ def checks(folder):
     return len([i for i in items if i.get("state") == "done"]), len(items)
 
 
+def loop_file(folder):
+    """Where night-loop.sh marks that its loop runs on this folder (it never writes active.json)."""
+    key = hashlib.sha1(os.path.realpath(folder).encode("utf-8")).hexdigest()[:10]
+    return os.path.join(HOME, "loops", key + ".json")
+
+
+def loop_run(folder):
+    """{pid, end} of a night-loop.sh run on this folder while its process is alive, else {}."""
+    try:
+        with open(loop_file(folder), encoding="utf-8") as fh:
+            run = json.load(fh)
+        pid, end = int(run["pid"]), float(run["end"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+    if end <= time.time():
+        return {}
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return {}
+    except OSError:   # alive, but not ours to signal
+        pass
+    return {"pid": pid, "end": end}
+
+
 def card(folder, now=None):
     now = datetime.datetime.now() if now is None else now
     folder = os.path.abspath(os.path.expanduser(folder))
     run = active()
-    mine = bool(run) and os.path.realpath(run.get("folder", "")) == os.path.realpath(folder)
+    looping = loop_run(folder)
+    mine = (bool(run) and os.path.realpath(run.get("folder", "")) == os.path.realpath(folder)) or bool(looping)
+    if not run or os.path.realpath(run.get("folder", "")) != os.path.realpath(folder):
+        run = {}
     until = ""
-    if mine:
+    if looping:
+        until = datetime.datetime.fromtimestamp(looping["end"]).strftime("%H:%M")
+    elif mine:
         try:
             until = datetime.datetime.fromisoformat(run["until"]).strftime("%H:%M")
         except (KeyError, ValueError):
@@ -119,13 +150,14 @@ def card(folder, now=None):
     closed, items = checks(folder)
     wants = ledger.read(folder)
     waits = [w for w in wants if w["verdict"] == "pending"]
+    council = len([w for w in wants if w["verdict"] == "done"])   # carried out already, can be undone: not a wait
     held = section(text_of(os.path.join(folder, "PROGRESS.md")), "Check in the morning")
     return {
         "folder": folder, "state": state, "until": until, "round": int(run.get("rounds", 0)) if mine else 0,
         "steps_done": steps_done, "steps_total": steps_total, "checks_done": closed, "checks_total": items,
         "last": last_action(folder),
         "waits": [{"id": w["id"], "what": w["what"], "meanwhile": w["default"]} for w in waits],
-        "decided": len(wants) - len(waits), "held": len(held),
+        "decided": len(wants) - len(waits) - council, "council": council, "held": len(held),
         "can_stop": state == "working", "can_continue": state in ("stopped", "idle"),
         "at": time.time(),
     }
@@ -177,10 +209,12 @@ def render(c):
                                                              if c["held"] else ""))
     if c["decided"]:
         out.append(f"Decided by you so far: {c['decided']}")
+    if c["council"]:
+        out.append(f"Done by the AI council, each can be undone: {c['council']} (see decisions.md)")
     if c["can_stop"]:
-        out.append("Stop: `status.py stop` (or the STOP button on the phone) - the night ends after this step.")
+        out.append("Stop: `status.py stop` (or the Stop button in Telegram) - the night ends after this step.")
     if c["can_continue"]:
-        out.append("Continue: `status.py continue` (or the Continue button on the phone).")
+        out.append("Continue: `status.py continue` (or the Continue button in Telegram).")
     return "\n".join(out)
 
 
@@ -197,9 +231,12 @@ def push(folder):
     if not state:
         return 0
     import night
-    args = argparse.Namespace(dir=folder, state=state, note=summary(c), rest=0, kind="", hours=0, end=0, box=False,
-                              meter="", say=False, steps=steps_text(c), checks=checks_text(c), last=c["last"],
-                              waits=len(c["waits"]))
+    # The phone shows the card fields in its own words, so the note stays empty; only a pocketcall that knows no
+    # card fields (exit code 2) gets the card as words in the note. The night's kind, length, end, box and meter are
+    # not sent: the board keeps the ones the night itself set.
+    args = argparse.Namespace(dir=folder, state=state, note="", fallback_note=summary(c), rest=0, kind="", hours=0,
+                              end=0, box=False, meter="", say=False, steps=steps_text(c), checks=checks_text(c),
+                              last=c["last"], waits=len(c["waits"]))
     try:
         return night.cmd_board(args)
     except Exception:  # noqa: BLE001

@@ -202,6 +202,22 @@ def cmd_end(_):
     return 0
 
 
+def cmd_loop(a):
+    """night-loop.sh marks its run on a folder (no active.json: the loop is not a session), so the card knows it."""
+    try:
+        import status
+        mark = status.loop_file(os.path.abspath(a.dir))
+        if a.off:
+            os.remove(mark)
+        else:
+            os.makedirs(os.path.dirname(mark), exist_ok=True)
+            with open(mark, "w", encoding="utf-8") as fh:
+                json.dump({"pid": a.pid, "end": a.end}, fh)
+    except Exception:  # noqa: BLE001 - the night never waits on its card
+        pass
+    return 0
+
+
 def board_script():
     """pocketcall's board.py: NIGHTCALL_BOARD, or the newest installed pocketcall plugin."""
     named = os.environ.get("NIGHTCALL_BOARD", "")
@@ -227,20 +243,32 @@ def cmd_board(a):
     until = ""
     if a.rest and a.rest > 0:
         until = (datetime.datetime.now() + datetime.timedelta(seconds=a.rest)).strftime("%H:%M")
+    if a.steps is None and a.checks is None and a.last is None and a.waits is None:
+        # the caller sent no card: it is read from the folder, so every board line of the night carries it
+        try:
+            import status
+            c = status.card(folder)
+            a.steps, a.checks, a.last, a.waits = (status.steps_text(c), status.checks_text(c), c["last"],
+                                                  len(c["waits"]))
+        except Exception:  # noqa: BLE001
+            pass
+    has_card = bool(a.steps or a.checks or a.last or a.waits)
     script = board_script()
     if script:
         cmd = [sys.executable, script, "put", "--id", job_id, "--name", name, "--where", "nightcall",
                "--state", a.state, "--note", a.note, "--until", until, "--ring"]   # a night rings, away or not
-        extra = ["--folder", folder, "--meter", a.meter] + (["--say"] if a.say else []) + \
-            ([f"--steps={a.steps}", f"--checks={a.checks}", f"--last={a.last}", f"--waits={a.waits}"]
-             if getattr(a, "steps", "") or getattr(a, "waits", 0) or getattr(a, "last", "") else []) + \
+        extra = ["--folder", folder] + (["--meter", a.meter] if a.meter else []) + (["--say"] if a.say else []) + \
+            ([f"--steps={a.steps or ''}", f"--checks={a.checks or ''}", f"--last={a.last or ''}",
+              f"--waits={a.waits or 0}"] if has_card else []) + \
             (["--kind", a.kind, "--hours", str(a.hours), "--end", str(a.end)] if a.kind else []) + \
             (["--box"] if a.box else [])
         try:
             r = subprocess.run(cmd + extra, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                stderr=subprocess.DEVNULL, timeout=30)
             if r.returncode == 2:   # pocketcall before 0.6.0 knows no card fields (0.5.0: no folder/meter): the line itself still goes
-                subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                old = cmd[:]
+                old[old.index("--note") + 1] = getattr(a, "fallback_note", "") or a.note   # the card as words
+                subprocess.run(old, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                timeout=30)
             return 0
         except (OSError, subprocess.SubprocessError):
@@ -249,12 +277,18 @@ def cmd_board(a):
     try:
         os.makedirs(base, exist_ok=True)
         path = os.path.join(base, job_id + ".json")
+        try:   # a line that sends no night fields keeps the ones it had, as pocketcall's put does
+            with open(path, encoding="utf-8") as fh:
+                had = json.load(fh)
+        except (OSError, ValueError):
+            had = {}
         with open(path + ".tmp", "w", encoding="utf-8") as fh:
             json.dump({"id": job_id, "name": name, "where": "nightcall", "state": a.state,
                        "note": " ".join(a.note.split())[:160], "until": until, "at": time.time(),
-                       "folder": folder, "kind": a.kind, "hours": a.hours, "end": a.end, "box": bool(a.box),
-                       "meter": a.meter, "steps": getattr(a, "steps", ""), "checks": getattr(a, "checks", ""),
-                       "last": getattr(a, "last", ""), "waits": getattr(a, "waits", 0)},
+                       "folder": folder, "kind": a.kind or had.get("kind", ""), "hours": a.hours or had.get("hours", 0),
+                       "end": a.end or had.get("end", 0), "box": bool(a.box or had.get("box")),
+                       "meter": a.meter or had.get("meter", ""), "steps": a.steps or "", "checks": a.checks or "",
+                       "last": a.last or "", "waits": a.waits or 0},
                       fh, ensure_ascii=False)
         os.chmod(path + ".tmp", 0o600)
         os.replace(path + ".tmp", path)
@@ -276,6 +310,11 @@ def main(argv=None):
     r.add_argument("--session", default="", help="session_id of the window that started the night (${CLAUDE_SESSION_ID})")
     sub.add_parser("status")
     sub.add_parser("end")
+    lp = sub.add_parser("loop")
+    lp.add_argument("--dir", required=True)
+    lp.add_argument("--pid", type=int, default=0)
+    lp.add_argument("--end", type=float, default=0)
+    lp.add_argument("--off", action="store_true")
     o = sub.add_parser("board")
     o.add_argument("--dir", required=True)
     o.add_argument("--state", required=True, choices=("working", "limit", "done", "failed"))
@@ -287,13 +326,13 @@ def main(argv=None):
     o.add_argument("--box", action="store_true", help="the night runs in the box: Continue keeps it there")
     o.add_argument("--meter", default="", help="how much each subscription has left, one line")
     o.add_argument("--say", action="store_true", help="ring this line now even if the state did not change")
-    o.add_argument("--steps", default="", help="the card: plan steps done, like 3/7")
-    o.add_argument("--checks", default="", help="the card: checklist items closed with evidence, like 2/5")
-    o.add_argument("--last", default="", help="the card: the last action of the night")
-    o.add_argument("--waits", type=int, default=0, help="the card: how many things wait for the person (the ledger)")
+    o.add_argument("--steps", default=None, help="the card: plan steps done, like 3/7 (left out: read from the folder)")
+    o.add_argument("--checks", default=None, help="the card: checklist items closed with evidence, like 2/5")
+    o.add_argument("--last", default=None, help="the card: the last action of the night")
+    o.add_argument("--waits", type=int, default=None, help="the card: how many things wait for the person (the ledger)")
     a = ap.parse_args(argv)
     return {"begin": cmd_begin, "arm": cmd_arm, "status": cmd_status, "end": cmd_end,
-            "board": cmd_board}[a.cmd](a)
+            "board": cmd_board, "loop": cmd_loop}[a.cmd](a)
 
 
 if __name__ == "__main__":

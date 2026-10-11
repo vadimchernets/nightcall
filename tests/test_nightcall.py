@@ -59,7 +59,7 @@ def test_awake_starts_ends_by_itself_and_stops():
     if platform.system() not in ("Darwin", "Linux"):
         return
     home = tempfile.mkdtemp()
-    env = {"NIGHTCALL_HOME": home}
+    env = {"NIGHTCALL_HOME": home, "NIGHTCALL_BOARD": "off"}
     name = "awake-mac" if platform.system() == "Darwin" else "awake-linux"
     # bad input is refused
     assert run(["bash", os.path.join(S, "awake.sh"), "abc"], env).returncode == 2
@@ -397,7 +397,7 @@ def test_everyday_words_are_not_a_quota():
 def test_night_begin_arm_hook_end():
     home = tempfile.mkdtemp()
     folder = os.path.join(tempfile.mkdtemp(), "night")
-    env = {"NIGHTCALL_HOME": home}
+    env = {"NIGHTCALL_HOME": home, "NIGHTCALL_BOARD": "off"}
     night = [sys.executable, os.path.join(S, "night.py")]
     hook = [sys.executable, os.path.join(ROOT, "hooks", "stop.py")]
     r = run(night + ["begin", "--dir", folder, "--hours", "1"], env, "write a report")
@@ -433,7 +433,7 @@ def test_begin_always_makes_restore_point_and_fence():
     if shutil.which("git") is None:
         return
     home = tempfile.mkdtemp()
-    env = {"NIGHTCALL_HOME": home}
+    env = {"NIGHTCALL_HOME": home, "NIGHTCALL_BOARD": "off"}
     night = [sys.executable, os.path.join(S, "night.py")]
     # a folder that is not code and not under git: git init + commit "before the night" + tag + fence
     folder = tempfile.mkdtemp()
@@ -466,7 +466,7 @@ def test_begin_always_makes_restore_point_and_fence():
 def test_hook_bound_to_the_session_that_armed_the_night():
     home = tempfile.mkdtemp()
     folder = os.path.join(tempfile.mkdtemp(), "night")
-    env = {"NIGHTCALL_HOME": home}
+    env = {"NIGHTCALL_HOME": home, "NIGHTCALL_BOARD": "off"}
     night = [sys.executable, os.path.join(S, "night.py")]
     hook = [sys.executable, os.path.join(ROOT, "hooks", "stop.py")]
     run(night + ["begin", "--dir", folder], env, "task")

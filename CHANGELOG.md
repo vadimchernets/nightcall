@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- A transparent night. `scripts/status.py` (skill `/nightcall:status`): the night's card - state, last action, plan
+  steps, checks closed with evidence, what waits for the person - with `stop` / `continue` and `push`, which puts the
+  card on pocketcall's board (pocketcall 0.6.0+: `--steps --checks --last --waits`; older boards still get the line).
+  The Stop hook pushes it after every round, from a process of its own. `scripts/ledger.py`: the ledger "what the AI
+  wanted - what the person approved" (`LEDGER.jsonl`, append-only); `team.py decide` and `hold` write to it, skills
+  start and morning use it. Tests: `tests/test_status.py`.
+
 ## 0.5.0 — 2026-10-07
 
 - The checklist (`scripts/checklist.py`, the council's "one tested path", 07.10): `checklist.json` from the person's

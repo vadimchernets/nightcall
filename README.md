@@ -44,6 +44,7 @@ it and deletes their saved data.
 | `/nightcall:ready` | The checklist before leaving: power, lid, updates, network, disk, permissions, limits. |
 | `/nightcall:mine` | My subscriptions: Claude, then my own Codex, then my own Gemini CLI carry the night on in turn, and the work comes back to Claude when its limit is back; the board shows how much each has left. |
 | `/nightcall:family` | The family relay: when one person's limit runs out, the next family member's own account carries the night or the weekend on. |
+| `/nightcall:status` | What the night is doing, in one card: state, last action, steps and checks, what waits for you, Stop / Continue - the same card on the phone's board. Also the ledger "what the AI wanted - what you decided". |
 | `/nightcall:morning` | `MORNING.md`: done / not done / check first / decided without you. Switches everything off. |
 
 ## Coffee on its own (no Claude needed)
@@ -163,6 +164,22 @@ How much is left: Claude Code tells it to its status line - `mine.py capture` as
 command keeps the numbers (five-hour and weekly windows, only numbers, fresh 15 min / 6 h); Codex is read
 live through `codex app-server` (`account/rateLimits/read`). The same sensor as diffcall's capacity
 package. Skill: `/nightcall:mine`.
+
+## A transparent night: the card and the ledger
+
+`/nightcall:status` (`scripts/status.py show`) answers "what is it doing" from the night's own files, never from
+memory: the **state** (working until HH:MM, stopped, done), the **last action** (the newest line of the journal in
+`PROGRESS.md`), **how far** (plan steps done, checklist items closed with evidence) and **what waits for you**.
+`status.py stop` puts a `STOP` file in the folder and the night ends after the step it is in; `status.py continue`
+takes it away. After every round the same card goes onto pocketcall's board (`status.py push`), so the phone page
+shows steps, checks, the last action and the number of things waiting, and the Telegram ring comes with Stop and
+Continue.
+
+The **ledger** (`LEDGER.jsonl` in the task folder, `scripts/ledger.py`) is the list "what the AI wanted - what you
+decided". Every council decision and every question held for the morning lands there by itself; the night adds
+anything else that is yours to decide (a message to send, money, a publication) with what it did meanwhile. In the
+morning each line gets one word, `approved` or `declined`, with the time; nothing in it is ever rewritten, so the
+history of who chose what stays.
 
 ## The family relay: the weekend goes on
 

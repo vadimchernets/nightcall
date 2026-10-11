@@ -176,6 +176,9 @@ is_limit() {
   [ "$rc" -ne 0 ] || [ "${#out}" -lt 300 ]
 }
 
+# the card: /nightcall:status and the phone know this loop runs (it writes no active.json); gone when it ends
+python3 "$here/night.py" loop --dir "$folder" --pid "$$" --end "$end" </dev/null >/dev/null 2>&1 || true
+trap 'python3 "$here/night.py" loop --dir "$folder" --off </dev/null >/dev/null 2>&1 || true' EXIT
 board --state working --note "until $(date -r "$end" '+%H:%M' 2>/dev/null || date -d "@$end" '+%H:%M')"
 why=""
 # killed, Ctrl-C or the terminal closed: the board says so instead of "working" forever

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `mine.py statusline on|off`: the status-line sensor goes into `~/.claude/settings.json` by a script, not by hand. A settings file that is
+  not valid JSON is never rewritten (stop, the path, a copy `settings.json.nightcall-copy`); the person's own statusLine is chained
+  and put back on `off`; writes are atomic and read back. Tests in `tests/test_mine.py`.
+
 ## 0.6.0 — 2026-10-11
 
 - A transparent night. `scripts/status.py` (skill `/nightcall:status`): the night's card - state, last action, plan

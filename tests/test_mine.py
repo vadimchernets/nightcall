@@ -13,6 +13,8 @@ import subprocess
 import sys
 import time
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_family import S, world  # noqa: E402
 
@@ -278,3 +280,60 @@ def test_capture_keeps_the_person_s_own_status_line():
     payload = {"rate_limits": {"five_hour": {"used_percentage": 50}}}
     r = mine(env, "capture", "--then", "echo my-own-line", inp=json.dumps(payload))
     assert r.stdout.splitlines()[0] == "my-own-line" and "Claude 50% left" in r.stdout
+
+
+# --- statusline on/off: settings.json is never overwritten when it is broken ---
+def _sl(cfg, what):
+    env = dict(os.environ, CLAUDE_CONFIG_DIR=cfg)
+    return subprocess.run([sys.executable, os.path.join(S, "mine.py"), "statusline", what], capture_output=True,
+                          text=True, env=env)
+
+
+def test_statusline_broken_settings_is_not_rewritten(tmp_path):
+    cfg = str(tmp_path)
+    p = os.path.join(cfg, "settings.json")
+    open(p, "w").write("{ not json")
+    r = _sl(cfg, "on")
+    assert r.returncode == 3 and p in r.stdout and "copy" in r.stdout
+    assert open(p).read() == "{ not json"
+    assert open(p + ".nightcall-copy").read() == "{ not json"
+
+
+def test_statusline_on_off_keeps_everything_else_and_the_persons_own_line(tmp_path):
+    cfg = str(tmp_path)
+    p = os.path.join(cfg, "settings.json")
+    json.dump({"theme": "dark", "statusLine": {"type": "command", "command": "echo mine"}}, open(p, "w"))
+    assert _sl(cfg, "on").returncode == 0
+    d = json.load(open(p))
+    assert d["theme"] == "dark" and "mine.py" in d["statusLine"]["command"] and "echo mine" in d["statusLine"]["command"]
+    assert _sl(cfg, "on").stdout.startswith("Already on")
+    assert _sl(cfg, "off").returncode == 0
+    assert json.load(open(p)) == {"theme": "dark", "statusLine": {"type": "command", "command": "echo mine"}}
+
+
+def test_statusline_missing_file_is_created_and_no_temp_left(tmp_path):
+    cfg = str(tmp_path / "newdir")
+    assert _sl(cfg, "on").returncode == 0
+    assert os.listdir(cfg) == ["settings.json"]
+    assert _sl(cfg, "off").returncode == 0
+    assert json.load(open(os.path.join(cfg, "settings.json"))) == {}
+
+
+def test_statusline_off_leaves_a_foreign_line_alone(tmp_path):
+    cfg = str(tmp_path)
+    p = os.path.join(cfg, "settings.json")
+    json.dump({"statusLine": {"type": "command", "command": "echo theirs"}}, open(p, "w"))
+    assert "Not ours" in _sl(cfg, "off").stdout
+    assert json.load(open(p))["statusLine"]["command"] == "echo theirs"
+
+
+def test_statusline_write_is_atomic_failed_rename_keeps_old_file(tmp_path, monkeypatch):
+    sys.path.insert(0, S)
+    import mine as mine_mod
+    p = str(tmp_path / "settings.json")
+    open(p, "w").write('{"a": 1}')
+    monkeypatch.setattr(mine_mod.os, "replace", lambda a, b: (_ for _ in ()).throw(OSError("boom")))
+    with pytest.raises(OSError):
+        mine_mod._write_json_atomic(p, {"a": 2})
+    assert open(p).read() == '{"a": 1}'
+    assert os.listdir(str(tmp_path)) == ["settings.json"]

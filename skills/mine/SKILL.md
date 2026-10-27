@@ -46,11 +46,14 @@ sign-in on this computer; nothing about logins moves.
    ```
 
 3. **The remaining-% sensor for Claude** (once): Claude Code tells how much of the five-hour and weekly limits is left
-   only to its status line. Add to `~/.claude/settings.json` (keep any statusLine the person already has - then
-   chain theirs: `mine.py capture --then "<their command>"` prints their line too):
-   ```json
-   "statusLine": {"type": "command", "command": "python3 \"<real path of ${CLAUDE_PLUGIN_ROOT}>/scripts/mine.py\" capture"}
+   only to its status line. Do not edit `~/.claude/settings.json` by hand - run the script, it does it safely (keeps the
+   person's own statusLine and chains it, makes a first copy, writes atomically, and if the file is not valid JSON it
+   stops, names the file and the copy it made, and changes nothing):
    ```
+   sh "${CLAUDE_PLUGIN_ROOT}/hooks/python.sh" nightcall say scripts/mine.py statusline on
+   ```
+   (`statusline off` takes it out again and puts the person's own line back.) If it prints STOP, tell the person that
+   one line - the file name - and go on without the sensor; never rewrite the file yourself.
    The status line then shows "Claude 44% left (5h), resets 21:00", and the night reads the same number. Codex's
    number is read live from `codex app-server` (OpenAI's own figures). Gemini publishes none - it moves on its limit
    message.

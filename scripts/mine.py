@@ -15,6 +15,7 @@ The phone hears "switched to Codex - the work goes on".
     python3 mine.py soonest                   # seconds until the first subscription is back
     python3 mine.py engines                   # the programs in the order (claude codex gemini)
     python3 mine.py capture                   # Claude Code's statusLine command: keeps the "left %" reading
+    python3 mine.py statusline on|off         # put/take that command into/out of ~/.claude/settings.json - safely
 
 HOW THE WORK MOVES. The night loop starts a fresh program for every step, and that program reads
 TASK.md, PLAN.md and PROGRESS.md in the task folder. So the step that Claude did not finish is taken
@@ -510,6 +511,89 @@ def cmd_capture(a):
     return 0
 
 
+def _settings_path():
+    return os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude"),
+                        "settings.json")
+
+
+def _write_json_atomic(path, data):
+    """Temp file in the same folder, fsync, rename over; then read it back. Returns True when the file reads back."""
+    folder = os.path.dirname(path)
+    os.makedirs(folder, exist_ok=True)
+    tmp = os.path.join(folder, ".settings.%d.tmp" % os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2, ensure_ascii=False)
+            fh.write("\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return isinstance(json.load(fh), dict)
+    except (OSError, ValueError):
+        return False
+
+
+def cmd_statusline(a):
+    """Put `mine.py capture` into ~/.claude/settings.json as the statusLine, or take it out again. A settings file that is
+    not valid JSON is NEVER rewritten (not even with {}): the command stops, names the file and the copy it made.
+    The person's own statusLine is chained with --then and put back on `off`. Every write is atomic and checked."""
+    path = _settings_path()
+    data = {}
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                raw = fh.read()
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                raise ValueError("the top level is not a JSON object")
+        except (OSError, ValueError) as err:
+            copy = path + ".nightcall-copy"
+            try:
+                shutil.copyfile(path, copy)
+            except OSError:
+                copy = "(could not be copied)"
+            print("STOP: %s is not valid JSON (%s). Nothing was changed. A copy is at %s - fix the file by hand "
+                  "(or restore it), then run this again." % (path, err, copy))
+            return 3
+        backup = path + ".nightcall-backup"
+        if not os.path.exists(backup):
+            shutil.copyfile(path, backup)
+    me = os.path.abspath(__file__)
+    mine_cmd = 'python3 "%s" capture' % me
+    cur = data.get("statusLine") if isinstance(data.get("statusLine"), dict) else None
+    ours = bool(cur) and "mine.py" in str(cur.get("command", "")) and " capture" in str(cur.get("command", ""))
+    if a.what == "on":
+        if ours:
+            print("Already on: %s" % path)
+            return 0
+        new_cmd = mine_cmd
+        if cur and cur.get("command"):
+            new_cmd = mine_cmd + " --then " + json.dumps(cur["command"])
+        data["statusLine"] = {"type": "command", "command": new_cmd}
+    else:
+        if not ours:
+            print("Not ours, left as it is: %s has no nightcall status line." % path)
+            return 0
+        m = re.search(r" --then (\".*\")\s*$", cur["command"])
+        if m:
+            data["statusLine"] = {"type": "command", "command": json.loads(m.group(1))}
+        else:
+            del data["statusLine"]
+    if not _write_json_atomic(path, data):
+        backup = path + ".nightcall-backup"
+        if os.path.exists(backup):
+            shutil.copyfile(backup, path)
+        print("STOP: the new %s did not read back; the first copy was put back." % path)
+        return 3
+    print("Status line %s in %s" % (a.what, path))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Nightcall: my own subscriptions carry the work on in turn.")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -534,13 +618,15 @@ def main(argv=None):
     sub.add_parser("engines")
     p = sub.add_parser("capture")
     p.add_argument("--then", default="", help="your own status line command: same input, its line too")
+    p = sub.add_parser("statusline")
+    p.add_argument("what", choices=("on", "off"))
     p = sub.add_parser("say")
     p.add_argument("what", choices=("switched",))
     p.add_argument("--to", required=True)
     a = ap.parse_args(argv)
     return {"on": cmd_on, "off": cmd_off, "status": cmd_status, "meter": cmd_meter, "pick": cmd_pick,
             "limit": cmd_limit, "relay": cmd_relay, "soonest": cmd_soonest, "engines": cmd_engines,
-            "capture": cmd_capture, "say": cmd_say}[a.cmd](a)
+            "capture": cmd_capture, "statusline": cmd_statusline, "say": cmd_say}[a.cmd](a)
 
 
 if __name__ == "__main__":

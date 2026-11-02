@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.1 — 2026-11-02
 
 - `mine.py statusline on|off`: the status-line sensor goes into `~/.claude/settings.json` by a script, not by hand. A settings file that is
   not valid JSON is never rewritten (stop, the path, a copy `settings.json.nightcall-copy`); the person's own statusLine is chained

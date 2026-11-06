@@ -1,5 +1,7 @@
 # Nightcall
 
+> Poly helped? [Give it a star on GitHub](https://github.com/vadimchernets/nightcall) - one click. The plugin is open to everyone either way.
+
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23107725.svg)](https://doi.org/10.5281/zenodo.23107725)
 
 **Leave Claude Code working through the night on your task — and find a report in the morning.**
